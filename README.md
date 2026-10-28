@@ -1,32 +1,23 @@
-# Chromium embed WebView AAR (arm64, Android 8+)
+# hongqing1/chromiumsdk
 
-Self-built embeddable Chromium WebView AAR for YXT Android APK integration.
+`main` is reserved for the next Chromium embed AAR rebuild. This branch is a placeholder; that work is in progress.
 
-- **Pinned Chromium**: 133.0.6943.123
-- **Target**: `android_webview/embed_aar:chromium_webview`
-- **Out**: `out/AarArm64` (`target_os=android`, `target_cpu=arm64`)
-- **Privacy**: see `docs/PRIVACY_ARGS.md` and `gn/args.gn` (reporting/telemetry disabled for CN store)
+The previous M133 build (133.0.6943.123) lives on:
 
-## What is in this repo
+- Branch [`v133.0.6943.123-arm64`](https://github.com/hongqing1/chromiumsdk/tree/v133.0.6943.123-arm64)
+- Release tag [`v133.0.6943.123-arm64`](https://github.com/hongqing1/chromiumsdk/releases/tag/v133.0.6943.123-arm64)
 
-- `gn/args.gn` — effective GN args used for the AAR build
-- `embed_aar/` — custom dist/package AAR GN target
-- `patches/` — local patches (gperf 3.2 fallthrough, android_webview BUILD.gn)
-- `scripts/watch_and_finish.sh` — poll for AAR / copy to artifacts
-- `docs/` — privacy notes and pinned revision (`docs/PINNED_REV.txt`)
-- `chromium_webview.aar` is a GitHub Release asset (~105MB), not committed here
+Full Chromium source is not in this repo.
 
-## What is NOT in this repo
+---
 
-Full Chromium (~39G) is not in this repo. Rebuild uses depot_tools + `gclient sync` to `docs/PINNED_REV.txt` (133.0.6943.123), apply `patches/`, use `gn/args.gn`, and build the `embed_aar` target.
+# hongqing1/chromiumsdk
 
-## Rebuild sketch
+`main` 预留给下一次 Chromium embed AAR 重建，当前为占位，工作进行中。
 
-```bash
-# depot_tools + gclient sync to the rev in docs/PINNED_REV.txt (133.0.6943.123)
-# apply patches/
-mkdir -p out/AarArm64 && cp gn/args.gn out/AarArm64/args.gn
-# copy embed_aar/ into src/android_webview/embed_aar
-gn gen out/AarArm64
-ninja -C out/AarArm64 android_webview/embed_aar:chromium_webview
-```
+上一版 M133（133.0.6943.123）位于：
+
+- 分支 [`v133.0.6943.123-arm64`](https://github.com/hongqing1/chromiumsdk/tree/v133.0.6943.123-arm64)
+- Release 标签 [`v133.0.6943.123-arm64`](https://github.com/hongqing1/chromiumsdk/releases/tag/v133.0.6943.123-arm64)
+
+本仓库不包含完整 Chromium 源码。
