@@ -1,0 +1,71 @@
+diff --git a/android_webview/renderer/aw_url_loader_throttle_provider.cc b/android_webview/renderer/aw_url_loader_throttle_provider.cc
+index f91be85af0..c25c2e7530 100644
+--- a/android_webview/renderer/aw_url_loader_throttle_provider.cc
++++ b/android_webview/renderer/aw_url_loader_throttle_provider.cc
+@@ -8,7 +8,10 @@
+ 
+ #include "base/feature_list.h"
+ #include "base/memory/ptr_util.h"
++#include "components/safe_browsing/buildflags.h"
++#if BUILDFLAG(SAFE_BROWSING_AVAILABLE)
+ #include "components/safe_browsing/content/renderer/renderer_url_loader_throttle.h"
++#endif
+ #include "components/safe_browsing/core/common/features.h"
+ #include "content/public/common/content_features.h"
+ #include "content/public/renderer/render_thread.h"
+@@ -64,11 +67,13 @@ AwURLLoaderThrottleProvider::CreateThrottles(
+          type_ == blink::URLLoaderThrottleProviderType::kFrame);
+ 
+   if (!is_frame_resource) {
++#if BUILDFLAG(SAFE_BROWSING_AVAILABLE)
+     if (safe_browsing_remote_)
+       safe_browsing_.Bind(std::move(safe_browsing_remote_));
+     throttles.emplace_back(
+         std::make_unique<safe_browsing::RendererURLLoaderThrottle>(
+             safe_browsing_.get(), local_frame_token));
++#endif  // BUILDFLAG(SAFE_BROWSING_AVAILABLE)
+   }
+ 
+   return throttles;
+diff --git a/components/safe_browsing/android/remote_database_manager.cc b/components/safe_browsing/android/remote_database_manager.cc
+index 7486a6ad7e..17380035ed 100644
+--- a/components/safe_browsing/android/remote_database_manager.cc
++++ b/components/safe_browsing/android/remote_database_manager.cc
+@@ -16,7 +16,10 @@
+ #include "base/strings/string_number_conversions.h"
+ #include "base/strings/string_split.h"
+ #include "base/timer/elapsed_timer.h"
++#include "components/safe_browsing/buildflags.h"
++#if BUILDFLAG(SAFE_BROWSING_DB_REMOTE)
+ #include "components/safe_browsing/android/real_time_url_checks_allowlist.h"
++#endif
+ #include "components/safe_browsing/android/safe_browsing_api_handler_bridge.h"
+ #include "components/safe_browsing/core/browser/db/v4_get_hash_protocol_manager.h"
+ #include "components/safe_browsing/core/browser/db/v4_protocol_manager_util.h"
+@@ -28,7 +31,9 @@
+ using content::BrowserThread;
+ namespace safe_browsing {
+ 
++#if BUILDFLAG(SAFE_BROWSING_DB_REMOTE)
+ using IsInAllowlistResult = RealTimeUrlChecksAllowlist::IsInAllowlistResult;
++#endif
+ namespace {
+ 
+ constexpr char kCanCheckUrlBaseHistogramName[] = "SB2.RemoteCall.CanCheckUrl";
+@@ -187,11 +192,16 @@ void RemoteSafeBrowsingDatabaseManager::CheckUrlForHighConfidenceAllowlist(
+     return;
+   }
+ 
++#if BUILDFLAG(SAFE_BROWSING_DB_REMOTE)
+   IsInAllowlistResult match_result =
+       RealTimeUrlChecksAllowlist::GetInstance()->IsInAllowlist(url);
+   // Note that if the allowlist is unavailable, we say that is a match.
+   bool is_match = match_result == IsInAllowlistResult::kInAllowlist ||
+                   match_result == IsInAllowlistResult::kAllowlistUnavailable;
++#else
++  // safe_browsing_mode==0: RealTimeUrlChecksAllowlist is not built.
++  bool is_match = false;
++#endif
+   ui_task_runner()->PostTask(
+       FROM_HERE, base::BindOnce(std::move(callback),
+                                 /*url_on_high_confidence_allowlist=*/is_match,

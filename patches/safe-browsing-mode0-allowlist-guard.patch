@@ -1,0 +1,42 @@
+diff --git a/components/safe_browsing/android/remote_database_manager.cc b/components/safe_browsing/android/remote_database_manager.cc
+index 7486a6ad7e..17380035ed 100644
+--- a/components/safe_browsing/android/remote_database_manager.cc
++++ b/components/safe_browsing/android/remote_database_manager.cc
+@@ -16,7 +16,10 @@
+ #include "base/strings/string_number_conversions.h"
+ #include "base/strings/string_split.h"
+ #include "base/timer/elapsed_timer.h"
++#include "components/safe_browsing/buildflags.h"
++#if BUILDFLAG(SAFE_BROWSING_DB_REMOTE)
+ #include "components/safe_browsing/android/real_time_url_checks_allowlist.h"
++#endif
+ #include "components/safe_browsing/android/safe_browsing_api_handler_bridge.h"
+ #include "components/safe_browsing/core/browser/db/v4_get_hash_protocol_manager.h"
+ #include "components/safe_browsing/core/browser/db/v4_protocol_manager_util.h"
+@@ -28,7 +31,9 @@
+ using content::BrowserThread;
+ namespace safe_browsing {
+ 
++#if BUILDFLAG(SAFE_BROWSING_DB_REMOTE)
+ using IsInAllowlistResult = RealTimeUrlChecksAllowlist::IsInAllowlistResult;
++#endif
+ namespace {
+ 
+ constexpr char kCanCheckUrlBaseHistogramName[] = "SB2.RemoteCall.CanCheckUrl";
+@@ -187,11 +192,16 @@ void RemoteSafeBrowsingDatabaseManager::CheckUrlForHighConfidenceAllowlist(
+     return;
+   }
+ 
++#if BUILDFLAG(SAFE_BROWSING_DB_REMOTE)
+   IsInAllowlistResult match_result =
+       RealTimeUrlChecksAllowlist::GetInstance()->IsInAllowlist(url);
+   // Note that if the allowlist is unavailable, we say that is a match.
+   bool is_match = match_result == IsInAllowlistResult::kInAllowlist ||
+                   match_result == IsInAllowlistResult::kAllowlistUnavailable;
++#else
++  // safe_browsing_mode==0: RealTimeUrlChecksAllowlist is not built.
++  bool is_match = false;
++#endif
+   ui_task_runner()->PostTask(
+       FROM_HERE, base::BindOnce(std::move(callback),
+                                 /*url_on_high_confidence_allowlist=*/is_match,

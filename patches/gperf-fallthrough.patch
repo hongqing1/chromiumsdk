@@ -1,0 +1,29 @@
+diff --git a/third_party/blink/renderer/build/scripts/gperf.py b/third_party/blink/renderer/build/scripts/gperf.py
+index 42630d37c5..1fed61ebfa 100644
+--- a/third_party/blink/renderer/build/scripts/gperf.py
++++ b/third_party/blink/renderer/build/scripts/gperf.py
+@@ -35,10 +35,20 @@ def generate_gperf(gperf_path, gperf_input, gperf_args):
+         # https://savannah.gnu.org/bugs/index.php?53028
+         gperf_output = re.sub(r'\bregister ', '', gperf_output)
+         # -Wimplicit-fallthrough needs an explicit fallthrough statement,
+-        # so replace gperf's /*FALLTHROUGH*/ comment with the statement.
+-        # https://savannah.gnu.org/bugs/index.php?53029
+-        gperf_output = gperf_output.replace('/*FALLTHROUGH*/',
+-                                            '  [[fallthrough]];')
++        # so replace gperf 3.1's /*FALLTHROUGH*/ comment with the statement.
++        # https://savannah.gnu.org/bugs/index.php?53029 (fixed in 3.2)
++        if re.search(
++                r'/\* C\+\+ code produced by gperf version 3\.[01](\.\d+)? \*/',
++                gperf_output):
++            gperf_output = gperf_output.replace('/*FALLTHROUGH*/',
++                                                '  [[fallthrough]];')
++        # gperf 3.2+ already emits [[fallthrough]] inside #if/#endif before
++        # /*FALLTHROUGH*/; clang requires the attribute to directly precede the
++        # case label. Collapse that block to a single attribute.
++        gperf_output = re.sub(
++            r'#if \(defined __cplusplus[\s\S]*?#endif\n\s*/\*FALLTHROUGH\*/\n',
++            '      [[fallthrough]];\n',
++            gperf_output)
+         # -Wpointer-to-int-cast warns about casting pointers to smaller ints
+         # Replace {(int)(long)&(foo), bar} with
+         # {static_cast<int>(reinterpret_cast<uintptr_t>(&(foo)), bar}

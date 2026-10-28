@@ -1,0 +1,54 @@
+# DIY embeddable Chromium WebView AAR (unsupported by upstream).
+
+import("//build/config/android/rules.gni")
+
+dist_aar("chromium_webview_java") {
+  deps = [
+    "//android_webview:android_webview_product_config_java",
+    "//android_webview:browser_java",
+    "//android_webview:common_java",
+    "//android_webview:platform_service_bridge_upstream_implementation_java",
+    "//android_webview/glue:glue_java",
+    "//android_webview/nonembedded:nonembedded_java",
+    "//android_webview/support_library:support_lib_glue_java",
+  ]
+  android_manifest = "//android_webview/embed_aar/AndroidManifest.xml"
+  output = "$target_out_dir/chromium_webview_java.aar"
+  jar_excluded_patterns = [
+    "META-INF/*",
+    "kotlin/*",
+    "kotlinx/*",
+    "_COROUTINE/*",
+    "android/*",
+    "androidx/*",
+    "org/jetbrains/annotations/*",
+    "org/intellij/lang/annotations/*",
+    "com/google/common/util/concurrent/*",
+    "javax/annotation/*",
+    "*.bin",
+  ]
+  resource_included_patterns = [ "None" ]
+}
+
+action("chromium_webview") {
+  deps = [
+    ":chromium_webview_java",
+    "//android_webview:libwebviewchromium",
+  ]
+  script = "//android_webview/embed_aar/package_aar.py"
+  inputs = [
+    "$target_out_dir/chromium_webview_java.aar",
+    "$root_build_dir/libwebviewchromium.so",
+  ]
+  outputs = [ "$root_build_dir/aar/chromium_webview.aar" ]
+  args = [
+    "--java-aar",
+    rebase_path("$target_out_dir/chromium_webview_java.aar", root_build_dir),
+    "--native-lib",
+    rebase_path("$root_build_dir/libwebviewchromium.so", root_build_dir),
+    "--abi",
+    android_app_abi,
+    "--output",
+    rebase_path("$root_build_dir/aar/chromium_webview.aar", root_build_dir),
+  ]
+}
