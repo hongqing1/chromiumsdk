@@ -17,7 +17,7 @@ Self-built embeddable Chromium WebView AARs for YXT Android (API 26+, GLES / Tex
 - `gn/args.gn` — effective GN args
 - `patches/stock/` — copies of crwebview 001/002/003
 - `patches/chromium/` — local Chromium-tree fixes **after** stock 001/002/003 (layout realign, gperf fallthrough, data-directory, …)
-- `patches/crwebview/` — local edits on top of crwebview `88f8fc85` (Android 8 / GLES / TextureView / ScopedAllowBlockingForTesting / BuildConfig)
+- `patches/crwebview/` — local edits on top of crwebview `88f8fc85` (Android 8 / GLES / TextureView / ScopedAllowBlockingForTesting / BuildConfig / QueryRenderMode↔g_use_vulkan)
 - `scripts/` — `watch_ninja.sh`, `finish_when_aar.sh`, `supervisor.sh`, plus `bin/python3*` + `python-fix/sitecustomize.py` (PY3_PROTO isolation)
 - `packaging/` — res AAR + verify scripts (no huge `_build` / `_repack` dirs)
 - `docs/` — pin files, short STATUS, full 自编译方案, BUILD_PITFALLS (§12)
@@ -62,6 +62,7 @@ git apply $KIT/patches/crwebview/0022-gles-scoped-allow-blocking-draw-functor.pa
 git apply $KIT/patches/crwebview/0023-mydrawfunctor-gles-default.patch
 git apply $KIT/patches/crwebview/0024-webview-delegate-wrapper.patch
 git apply $KIT/patches/crwebview/0025-buildconfig.patch
+git apply $KIT/patches/crwebview/0026-allocator-query-render-mode-gles.patch
 cd ../..
 
 # 6) GN + ninja

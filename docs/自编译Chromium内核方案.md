@@ -2,7 +2,7 @@
 
 | 项 | 内容 |
 |----|------|
-| 日期 | 2026-10-28（编译踩坑补记 2026-10-29；§12.8 protobuf；§12.9 静默退出；§12.10 ScopedAllowBlocking；§12.11 资源 AAR styles 覆盖；§12.12 content.R∪ui / R$array fonts_certs，完整 res ~409K，2026-10-30） |
+| 日期 | 2026-10-28（编译踩坑补记 2026-10-29；§12.8–12.12 见下；**§12.13 QueryRenderMode↔g_use_vulkan / GLES**，主 AAR 重编上传 2026-10-30） |
 | 来源 | [wuruxu/crwebview](https://github.com/wuruxu/crwebview) `main` 的 `88f8fc85`（2025-04-21，之后没有提交） |
 | 现在用的 | 2.0.0，内核 `132.0.6834.86`（从 AAR 里的版本串读出） |
 | 这次编 | `132.0.6834.165`，132 分支 Android 稳定版的最后一版（2025-02-04） |
@@ -21,12 +21,12 @@
 
 | 项 | 内容 |
 |----|------|
-| 状态 | **BOTH_AAR_DONE** |
+| 状态 | **BOTH_AAR_DONE**（主 AAR 已按 §12.13 重编：QueryRenderMode→GLES） |
 | 主 AAR | `crwebview-132.0.6834.165.aar` ~105M（含 so + classes + 注入的 `icudtl.dat` / paks / `snapshot_blob_64.bin` / 83 个 `stored-locales`；本树无 `v8_context_snapshot`） |
 | 资源 AAR | `crwebview-res-132.0.6834.165.aar` **~409K**（values 按名合并 + grit + shared_with_webview；**content R shim = content∪ui**，含 `R$array`/`ui_com_google_android_gms_fonts_certs*`；见 §7、§12.11、§12.12）。此前 ~140K 残缺包与仅 styles 修好的 ~391K 包均已作废 |
 | GitHub Release | https://github.com/hongqing1/chromiumsdk/releases/tag/v132.0.6834.165-arm64 |
 | 重建 kit 分支 | https://github.com/hongqing1/chromiumsdk/tree/v132.0.6834.165-arm64（patches / gn / packaging / docs，无完整 Chromium 树） |
-| 应用接入 | 第 9 节进行中；曾被残缺 res（§12.11）与运行时缺 `content/R$array`（§12.12）卡住；换 ~409K res 后按第 9 节表格操作 |
+| 应用接入 | 第 9 节进行中；§12.11/§12.12 已解；**§12.13**：MI PAD 4 上 Vulkan GpuInit CHECK——须换 §12.13 后的主 AAR（res 不变） |
 
 ## 1. 版本
 
@@ -167,6 +167,8 @@ public MyDrawFunctor() {
 ```
 
 所有版本都走 GLES，只维护一条绘制路径。Android 8、9 的系统界面本来就是 GL 渲染，上游测试壳默认也是 GL。Vulkan 的代码留着不删。Android 11 以上哪台机器 GLES 有问题，再按 `SDK_INT` 打开 Vulkan。
+
+**注意（§12.13）：** 仅改 Java `USE_VULKAN` / `SetDrawFnUseVulkan` 不够——`allocator.cc` 的 `QueryRenderMode()` 必须按 `g_use_vulkan` 返回（默认 GLES），否则 `AwDrawFnImpl::IsUsingVulkan()` 仍为 true，GpuInit 会 `CHECK` Vulkan。
 
 GL 上下文的创建、每帧绘制、销毁都在主线程，和 2.0.0 现在一样（`HardwareView` 里都是 `ThreadUtils.postOnUiThread`）。不要一半放主线程、一半放 `RenderThreadInstr`。
 
@@ -443,7 +445,7 @@ python3 gen_r_shims.py crwebview-res/src/main/java \
 | 内核版本 | `classes.jar` 里能搜到 `132.0.6834.165`，搜不到 `132.0.6834.86` |
 | ABI | AAR 的 `jni/` 里只有 `arm64-v8a` |
 | 布局 | 有 `org/chromium/android_crwebview/webkit/WebView.class`、`MyDrawFunctor.class`；没有 `com/android/webview/chromium/MyDrawFunctor.class` |
-| GLES | `javap -c` 看 `MyDrawFunctor.class`，`init`、`getDrawFnFunctionTable` 传的是 `false`。Android 8 真机 logcat 里没有 Vulkan 初始化的日志 |
+| GLES | `javap -c` 看 `MyDrawFunctor.class`，`init`、`getDrawFnFunctionTable` 传的是 `false`（`iconst_0`）。另确认 `QueryRenderMode` 读 `g_use_vulkan`（§12.13），勿再写死 VULKAN。Android 8 真机 logcat 里没有 `Failed to create Vulkan` / `gpu_init.cc Check failed` |
 | 重定位 | `llvm-readelf -d libwebviewchromium.so` 里没有 `RELR`、`ANDROID_RELR` |
 | assets | `icudtl.dat`、`resources.pak`、`chrome_100_percent.pak`、`snapshot_blob_64.bin`、`stored-locales/`（本树 **无** `v8_context_snapshot_64.bin`，核对时勿当失败） |
 | 资源 AAR | 只有一个 `crwebview-res-132.0.6834.165.aar`（完整包约 **391K**，勿用旧 ~140K）。清单 `package` 是 `org.chromium.crwebview.res`。`classes.jar` 里有第 7 节列出的每个包名的 `R` 转发类，主 AAR 里没有任何 `R.class`。AAR 内 `values/styles.xml` 须含 ui 侧完整 theme（不止 `WebViewBaseTheme`） |
@@ -453,7 +455,7 @@ python3 gen_r_shims.py crwebview-res/src/main/java \
 
 接入在 `crwebview` 分支，`WebViewWrapper`、实验室开关、JSB 反射都不改。
 
-**进度（2026-10-30）：** 第 9 节接入进行中。曾因残缺 res（§12.11）与运行时 `NoClassDefFoundError: content/R$array`（§12.12）阻塞；~409K res（content∪ui shim）已 `--clobber` 上传到 Release。换包后按下面表格操作。
+**进度（2026-10-30）：** 第 9 节接入进行中。§12.11/§12.12 已解。真机（MI PAD 4）又因 §12.13 `QueryRenderMode` 写死 Vulkan 崩在 GpuInit；主 AAR 已按 GLES 重编并 `--clobber` 上传（res 未动）。换 **主 AAR** 后再测。
 
 
 | 位置 | 改法 |
@@ -656,4 +658,13 @@ export PYTHONPATH="/workspace/crwebview-132/python-fix${PYTHONPATH:+:$PYTHONPATH
 | 改法 | `gen_r_shims.py` 支持 `pkg=R.txt+R.txt` 并集；`package_res_aar_finish.sh` 对 **content** 传 `CONTENT_RTXT+UI_RTXT`（ui 包仍单独一份）。NS `org.chromium.crwebview.res.R` 仍来自七份 R.txt 并集，本就有这些 array。重建后 `jar tf` 应有 `org/chromium/content/R$array.class`，`javap` 可见三个 `ui_com_google_android_gms_fonts_certs*`。完整 res AAR 约 **409K**，已 `--clobber` 上传到 [v132.0.6834.165-arm64](https://github.com/hongqing1/chromiumsdk/releases/tag/v132.0.6834.165-arm64) |
 | 不要 | 只在应用侧改 `import` / 反射绕开；不要只补空的 `R$array` 而不合并 ui R.txt（下次还有别的 ui 字段会再炸）。其它跨包 R 引用可再扫，但 content→ui 是已知崩溃点 |
 
+### 12.13 `QueryRenderMode` 写死 Vulkan → GpuInit `CHECK`（MI PAD 4 / API 27）
+
+| 项 | 内容 |
+|----|------|
+| 现象 | 换上 ~409K res 后 `R$array` 已好，真机（MI PAD 4，API 27）仍崩：`Failed to create Vulkan` → `FATAL:gpu_init.cc Check failed: result`。logcat 同时有 `egl-display-type=angle:OpenGLES` |
+| 原因 | Java `MyDrawFunctor.USE_VULKAN=false` 且 JNI `SetDrawFnUseVulkan(false)` 已生效，但 crwebview `allocator.cc` 的 `QueryRenderMode()` **写死** `AW_DRAW_FN_RENDER_MODE_VULKAN`，忽略 `g_use_vulkan`。`AwDrawFnImpl::IsUsingVulkan()` 仍为 true → `aw_main_delegate` 追加 `kWebViewDrawFunctorUsesVulkan` → `GpuInit::InitializeInProcess` 调 `InitializeVulkan()` 且 `CHECK` 无回退。上游 test shell 则是 `return g_use_vulkan ? VULKAN : OPENGL_ES`，默认 `g_use_vulkan=false` |
+| 改法 | 与 test shell 对齐：`g_use_vulkan = false`；`QueryRenderMode()` 按 flag 返回。补丁 `patches/crwebview/0026-allocator-query-render-mode-gles.patch`。增量 `ninja -C out/crwebview_arm64 -j6 android_webview/crwebview:crwebkit_aar`（PATH 含 `bin/` + PY3_PROTO）；资产注入后主 AAR ~104M，已 `--clobber` 上传到 [v132.0.6834.165-arm64](https://github.com/hongqing1/chromiumsdk/releases/tag/v132.0.6834.165-arm64)（**未**动 res AAR） |
+| 核对 | `javap -c MyDrawFunctor` 仍为 `iconst_0`；`llvm-objdump -d allocator.o` 中 `QueryRenderMode` 为 `ldrb w0, [g_use_vulkan]`（不再是常量 VULKAN）。期望：flag false 时回报 GLES，不再走 Vulkan GpuInit |
+| 不要 | 只改 Java 默认而不改 `QueryRenderMode`；不要为躲 CHECK 去关整棵 GPU 进程（应让 draw-fn 模式与 GLES 路径一致） |
 

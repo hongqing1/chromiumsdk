@@ -43,6 +43,9 @@ git apply /path/to/kit/patches/crwebview/0022-gles-scoped-allow-blocking-draw-fu
 git apply /path/to/kit/patches/crwebview/0023-mydrawfunctor-gles-default.patch
 git apply /path/to/kit/patches/crwebview/0024-webview-delegate-wrapper.patch
 git apply /path/to/kit/patches/crwebview/0025-buildconfig.patch
+git apply /path/to/kit/patches/crwebview/0026-allocator-query-render-mode-gles.patch
 ```
+
+`0026` makes `QueryRenderMode()` honor `g_use_vulkan` (default **false** → `AW_DRAW_FN_RENDER_MODE_OPENGL_ES`), matching the test shell. Without it, Java `USE_VULKAN=false` / `SetDrawFnUseVulkan(false)` still leaves `AwDrawFnImpl::IsUsingVulkan()` true and GpuInit `CHECK`s on Vulkan.
 
 Do **not** re-apply stock 001/002/003 after the layout-realign patches.

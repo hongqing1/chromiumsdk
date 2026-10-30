@@ -1,0 +1,18 @@
+diff --git a/java/src/draw_fn/allocator.cc b/java/src/draw_fn/allocator.cc
+index 928ca9a..f548cdb 100644
+--- a/java/src/draw_fn/allocator.cc
++++ b/java/src/draw_fn/allocator.cc
+@@ -13,10 +13,11 @@ namespace draw_fn {
+ 
+ namespace {
+ 
+-bool g_use_vulkan = true;
++bool g_use_vulkan = false;
+ 
+ AwDrawFnRenderMode QueryRenderMode() {
+-  return AW_DRAW_FN_RENDER_MODE_VULKAN;
++  return g_use_vulkan ? AW_DRAW_FN_RENDER_MODE_VULKAN
++                      : AW_DRAW_FN_RENDER_MODE_OPENGL_ES;
+ }
+ 
+ int CreateFunctor(void* data, AwDrawFnFunctorCallbacks* functor_callbacks) {

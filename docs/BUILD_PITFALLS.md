@@ -153,4 +153,16 @@ export PYTHONPATH="/workspace/crwebview-132/python-fix${PYTHONPATH:+:$PYTHONPATH
 | 改法 | `gen_r_shims.py` 支持 `pkg=R.txt+R.txt` 并集；`package_res_aar_finish.sh` 对 **content** 传 `CONTENT_RTXT+UI_RTXT`（ui 包仍单独一份）。NS `org.chromium.crwebview.res.R` 仍来自七份 R.txt 并集，本就有这些 array。重建后 `jar tf` 应有 `org/chromium/content/R$array.class`，`javap` 可见三个 `ui_com_google_android_gms_fonts_certs*`。完整 res AAR 约 **409K**，已 `--clobber` 上传到 [v132.0.6834.165-arm64](https://github.com/hongqing1/chromiumsdk/releases/tag/v132.0.6834.165-arm64) |
 | 不要 | 只在应用侧改 `import` / 反射绕开；不要只补空的 `R$array` 而不合并 ui R.txt（下次还有别的 ui 字段会再炸）。其它跨包 R 引用可再扫，但 content→ui 是已知崩溃点 |
 
+## 12.13 QueryRenderMode hardcoded Vulkan (GpuInit CHECK)
+
+ `QueryRenderMode` 写死 Vulkan → GpuInit `CHECK`（MI PAD 4 / API 27）
+
+| 项 | 内容 |
+|----|------|
+| 现象 | 换上 ~409K res 后 `R$array` 已好，真机（MI PAD 4，API 27）仍崩：`Failed to create Vulkan` → `FATAL:gpu_init.cc Check failed: result`。logcat 同时有 `egl-display-type=angle:OpenGLES` |
+| 原因 | Java `MyDrawFunctor.USE_VULKAN=false` 且 JNI `SetDrawFnUseVulkan(false)` 已生效，但 crwebview `allocator.cc` 的 `QueryRenderMode()` **写死** `AW_DRAW_FN_RENDER_MODE_VULKAN`，忽略 `g_use_vulkan`。`AwDrawFnImpl::IsUsingVulkan()` 仍为 true → `aw_main_delegate` 追加 `kWebViewDrawFunctorUsesVulkan` → `GpuInit::InitializeInProcess` 调 `InitializeVulkan()` 且 `CHECK` 无回退。上游 test shell 则是 `return g_use_vulkan ? VULKAN : OPENGL_ES`，默认 `g_use_vulkan=false` |
+| 改法 | 与 test shell 对齐：`g_use_vulkan = false`；`QueryRenderMode()` 按 flag 返回。补丁 `patches/crwebview/0026-allocator-query-render-mode-gles.patch`。增量 `ninja -C out/crwebview_arm64 -j6 android_webview/crwebview:crwebkit_aar`（PATH 含 `bin/` + PY3_PROTO）；资产注入后主 AAR ~104M，已 `--clobber` 上传到 [v132.0.6834.165-arm64](https://github.com/hongqing1/chromiumsdk/releases/tag/v132.0.6834.165-arm64)（**未**动 res AAR） |
+| 核对 | `javap -c MyDrawFunctor` 仍为 `iconst_0`；`llvm-objdump -d allocator.o` 中 `QueryRenderMode` 为 `ldrb w0, [g_use_vulkan]`（不再是常量 VULKAN）。期望：flag false 时回报 GLES，不再走 Vulkan GpuInit |
+| 不要 | 只改 Java 默认而不改 `QueryRenderMode`；不要为躲 CHECK 去关整棵 GPU 进程（应让 draw-fn 模式与 GLES 路径一致） |
+
 
