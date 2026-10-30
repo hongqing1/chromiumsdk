@@ -7,7 +7,7 @@
 ### M132 (132.0.6834.165) — crwebview embed AARs
 
 - Branch [`v132.0.6834.165-arm64`](https://github.com/hongqing1/chromiumsdk/tree/v132.0.6834.165-arm64) — rebuild kit (patches, args.gn, scripts, docs; **no** full Chromium tree)
-- Release tag [`v132.0.6834.165-arm64`](https://github.com/hongqing1/chromiumsdk/releases/tag/v132.0.6834.165-arm64) — `crwebview-132.0.6834.165.aar` (~105M, with assets) + **complete** `crwebview-res-132.0.6834.165.aar` (~391K; values XML named-merge, see kit `packaging/` / docs §12.11)
+- Release tag [`v132.0.6834.165-arm64`](https://github.com/hongqing1/chromiumsdk/releases/tag/v132.0.6834.165-arm64) — `crwebview-132.0.6834.165.aar` (~105M, with assets) + **complete** `crwebview-res-132.0.6834.165.aar` (~409K; values XML named-merge + content∪ui R shim, see kit `packaging/` / 方案 §7.4)
 
 ### M133 (133.0.6943.123) — prior embed_aar kit
 
@@ -27,7 +27,7 @@ Full Chromium source is not in this repo.
 ### M132（132.0.6834.165）— crwebview embed AAR
 
 - 分支 [`v132.0.6834.165-arm64`](https://github.com/hongqing1/chromiumsdk/tree/v132.0.6834.165-arm64) — 重编译套件（补丁、args.gn、脚本、文档；**不含**完整 Chromium 树）
-- Release [`v132.0.6834.165-arm64`](https://github.com/hongqing1/chromiumsdk/releases/tag/v132.0.6834.165-arm64) — `crwebview-132.0.6834.165.aar`（~105M，含 assets）+ **完整** `crwebview-res-132.0.6834.165.aar`（~391K；values XML 按名合并，见 kit `packaging/` / 文档 §12.11）
+- Release [`v132.0.6834.165-arm64`](https://github.com/hongqing1/chromiumsdk/releases/tag/v132.0.6834.165-arm64) — `crwebview-132.0.6834.165.aar`（~105M，含 assets）+ **完整** `crwebview-res-132.0.6834.165.aar`（~409K；values XML 按名合并 + content∪ui R shim，见 kit `packaging/` / 方案 §7.4）
 
 ### M133（133.0.6943.123）— 上一版 embed_aar
 
