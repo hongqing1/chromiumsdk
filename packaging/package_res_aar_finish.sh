@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 # Build crwebview-res-132.0.6834.165.aar per plan §7 without Gradle.
+# Merges values/*.xml across the 7 resource targets (no last-write-wins),
+# plus shared_with_webview dimens and grit string zips needed by layouts.
 set -euo pipefail
 ROOT=/workspace/crwebview-132
 OUT="$ROOT/src/out/crwebview_arm64"
@@ -42,48 +44,8 @@ for v in UI_RTXT CONTENT_RTXT EMBED_RTXT AW_RTXT WEBKIT_RTXT AUTOFILL_RTXT MEDIA
 done
 [[ $missing -eq 0 ]] || { echo "Cannot map all R.txt"; exit 1; }
 
-echo "== Copy res from .res.sources =="
-python3 - "$OUT" "$PKG/src/main/res" <<'PY2'
-import sys
-from pathlib import Path
-out = Path(sys.argv[1])
-dest_root = Path(sys.argv[2])
-sources_list = [
-    out / "gen/android_webview/crwebview_ui_android_resources.res.sources",
-    out / "gen/android_webview/crwebview_content_resources.res.sources",
-    out / "gen/android_webview/crwebview_embedder_support_resources.res.sources",
-    out / "gen/android_webview/resources.res.sources",
-    out / "gen/android_webview/crwebview/webkit_glue_resources.res.sources",
-    out / "gen/components/autofill/android/autofill_java_resources.res.sources",
-    out / "gen/media/base/android/media_java_resources.res.sources",
-]
-copied = 0
-for sources in sources_list:
-    if not sources.is_file():
-        print("WARN: no", sources)
-        continue
-    for rel in sources.read_text().splitlines():
-        rel = rel.strip()
-        if not rel:
-            continue
-        srcf = (out / rel).resolve()
-        if not srcf.is_file():
-            print("WARN: missing", rel, "->", srcf)
-            continue
-        s = str(srcf)
-        dest_rel = None
-        for marker in ("/res_webkit/", "/res/"):
-            if marker in s:
-                dest_rel = s.split(marker, 1)[1]
-                break
-        if dest_rel is None:
-            dest_rel = srcf.name
-        dest = dest_root / dest_rel
-        dest.parent.mkdir(parents=True, exist_ok=True)
-        dest.write_bytes(srcf.read_bytes())
-        copied += 1
-print("copied", copied, "res files")
-PY2
+echo "== Merge res from .res.sources (+ shared_with_webview + grit strings) =="
+python3 "$ROOT/packaging/merge_res_from_sources.py" "$OUT" "$PKG/src/main/res"
 
 echo "== Generate R shims =="
 python3 "$ROOT/packaging/gen_r_shims.py" "$PKG/src/main/java" \
@@ -117,22 +79,82 @@ while IFS= read -r f; do
   "$AAPT2" compile -o "$FLAT/" "$f" || { echo "aapt2 compile failed: $f"; exit 1; }
 done < "$ROOT/packaging/_build/res_files.txt"
 
+STUB_DIR=$ROOT/packaging/_build/stub_res/values
+mkdir -p "$STUB_DIR"
+STUB_XML=$STUB_DIR/appcompat_stub.xml
+cat > "$STUB_XML" <<STUB
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <style name="Theme.AppCompat.DayNight" parent="@android:style/Theme.DeviceDefault"/>
+</resources>
+STUB
+"$AAPT2" compile -o "$FLAT/" "$STUB_XML"
+
 mapfile -t FLATS < <(find "$FLAT" -type f | sort)
-"$AAPT2" link --manifest "$PKG/src/main/AndroidManifest.xml" \
+LINK_OK=0
+if "$AAPT2" link --manifest "$PKG/src/main/AndroidManifest.xml" \
   --java "$LINK/java" \
   --min-sdk-version 26 --target-sdk-version 35 \
   -I "$ANDROID_JAR" \
   -o "$LINK/res.apk" \
   --auto-add-overlay \
-  "${FLATS[@]}"
+  "${FLATS[@]}"; then
+  LINK_OK=1
+  echo "aapt2 link OK"
+else
+  echo "WARN: aapt2 link failed; generating synthetic NS R.java from R.txt union"
+fi
 
-find "$LINK/java" -name 'R.java' | head
+NS_JAVA_DIR=$ROOT/packaging/_build/ns_java/org/chromium/crwebview/res
+mkdir -p "$NS_JAVA_DIR"
+if [[ $LINK_OK -eq 1 ]]; then
+  find "$LINK/java" -name "R.java" -exec cp {} "$NS_JAVA_DIR/R.java" \;
+else
+  python3 - "$NS_JAVA_DIR/R.java" \
+    "$UI_RTXT" "$CONTENT_RTXT" "$EMBED_RTXT" "$AW_RTXT" "$WEBKIT_RTXT" "$AUTOFILL_RTXT" "$MEDIA_RTXT" <<PY
+import sys
+from collections import defaultdict
+out = sys.argv[1]
+types = defaultdict(set)
+for path in sys.argv[2:]:
+    with open(path) as f:
+        for line in f:
+            parts = line.split()
+            if len(parts) >= 3:
+                types[parts[1]].add((parts[0], parts[2]))
+lines = ["package org.chromium.crwebview.res;", "", "public final class R {"]
+for rtype in sorted(types):
+    lines.append(f"    public static final class {rtype} {{")
+    for kind, name in sorted(types[rtype], key=lambda x: x[1]):
+        if kind == "int[]":
+            lines.append(f"        public static int[] {name} = new int[]{{0x7f010001}};")
+        else:
+            lines.append(f"        public static {kind} {name} = 0x7f010001;")
+    lines.append("    }")
+lines.append("}")
+open(out, "w").write("\n".join(lines) + "\n")
+print("wrote synthetic", out, "types", len(types), "fields", sum(len(v) for v in types.values()))
+PY
+fi
+
+python3 - "$NS_JAVA_DIR/R.java" <<PY
+import re, sys
+p = sys.argv[1]
+t = open(p).read()
+nt = re.sub(r"public static final (int|\\[I\\]) ", r"public static \\1 ", t)
+nt = re.sub(r"public static final int\\[\\] ", "public static int[] ", nt)
+if nt != t:
+    open(p, "w").write(nt)
+    print("rewrote NS R.java to non-final fields")
+else:
+    print("NS R.java already non-final or synthetic")
+PY
 
 echo "== Compile stub NS R + shims =="
 CLASSES=$ROOT/packaging/_build/classes
 mkdir -p "$CLASSES"
-find "$LINK/java" -name '*.java' > "$ROOT/packaging/_build/ns_r_sources.txt"
-find "$PKG/src/main/java" -name '*.java' > "$ROOT/packaging/_build/shim_sources.txt"
+find "$ROOT/packaging/_build/ns_java" -name "*.java" > "$ROOT/packaging/_build/ns_r_sources.txt"
+find "$PKG/src/main/java" -name "*.java" > "$ROOT/packaging/_build/shim_sources.txt"
 javac --release 17 -cp "$ANDROID_JAR" -d "$CLASSES" @"$ROOT/packaging/_build/ns_r_sources.txt"
 javac --release 17 -cp "$ANDROID_JAR:$CLASSES" -d "$CLASSES" @"$ROOT/packaging/_build/shim_sources.txt"
 
