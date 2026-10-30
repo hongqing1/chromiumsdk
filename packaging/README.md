@@ -10,7 +10,10 @@ Used after ninja finishes the main `crwebkit_aar` and resource targets.
   Also pulls:
   - `components/browser_ui/.../shared_with_webview` dimens (`chip_icon_size`, …)
   - grit string zips referenced by layouts (`crwebview_*_strings_grd.resources.zip`)
-- `gen_r_shims.py` — generate R.java shims from R.txt maps
+- `gen_r_shims.py` — generate R.java shims from R.txt maps.
+  Accepts `pkg=R.txt` or `pkg=R.txt+R.txt` (union). **content** shim is built from
+  content R.txt ∪ ui R.txt so `org.chromium.content.R$array` mirrors Chromium's
+  content_java transitive merge (fonts certs used by `AndroidFontLookupImpl`).
 - `verify_aars.sh` — sanity-check main + res AARs
 - `r_txt_list.txt` — example R.txt path map from the 132 build (paths under `out/crwebview_arm64/gen/`)
 

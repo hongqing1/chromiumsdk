@@ -144,3 +144,13 @@ export PYTHONPATH="/workspace/crwebview-132/python-fix${PYTHONPATH:+:$PYTHONPATH
 | 改法 | **按资源名合并**，不要 stub style 打地鼠。用 `packaging/merge_res_from_sources.py` + 更新后的 `package_res_aar_finish.sh`（见 §7「合并 values，勿覆盖」）；补上 grit string zips 与 `shared_with_webview` dimens。完整 res AAR 约 **391K**，已重新上传到 [v132.0.6834.165-arm64](https://github.com/hongqing1/chromiumsdk/releases/tag/v132.0.6834.165-arm64)；packaging 修法在 kit 分支 commit `e1dcc89` |
 | 不要 | 对报错 style 名逐个写空 `<style>` 糊过去；不要继续分发 ~140K 的残缺 res AAR |
 
+### 12.12 资源 AAR：`content.R` 未合并 ui → `NoClassDefFoundError: R$array`（运行时字体查找）
+
+| 项 | 内容 |
+|----|------|
+| 现象 | 完整 res AAR（§12.11）接入后，进页 / 字体路径崩溃：`NoClassDefFoundError: Lorg/chromium/content/R$array;`，栈在 `AndroidFontLookupImpl.tryFetchFont`（`import org.chromium.content.R`；读 `R.array.ui_com_google_android_gms_fonts_certs`） |
+| 原因 | `ui_com_google_android_gms_fonts_certs*` 定义在 **ui** 资源（`ui/android/java/res/values/font_certs.xml`），出现在 ui 的 R.txt。Chromium 的 `content_java` 会把传递依赖的 ui 资源合并进 **content.R**；我们的 shim 若只按 content 自己的 R.txt 生成，jar 里只有 `org/chromium/ui/R$array`，没有 `org/chromium/content/R$array` |
+| 改法 | `gen_r_shims.py` 支持 `pkg=R.txt+R.txt` 并集；`package_res_aar_finish.sh` 对 **content** 传 `CONTENT_RTXT+UI_RTXT`（ui 包仍单独一份）。NS `org.chromium.crwebview.res.R` 仍来自七份 R.txt 并集，本就有这些 array。重建后 `jar tf` 应有 `org/chromium/content/R$array.class`，`javap` 可见三个 `ui_com_google_android_gms_fonts_certs*`。完整 res AAR 约 **409K**，已 `--clobber` 上传到 [v132.0.6834.165-arm64](https://github.com/hongqing1/chromiumsdk/releases/tag/v132.0.6834.165-arm64) |
+| 不要 | 只在应用侧改 `import` / 反射绕开；不要只补空的 `R$array` 而不合并 ui R.txt（下次还有别的 ui 字段会再炸）。其它跨包 R 引用可再扫，但 content→ui 是已知崩溃点 |
+
+

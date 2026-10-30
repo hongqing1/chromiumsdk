@@ -14,16 +14,16 @@
 - Local compile fixes: gperf/color_data fallthrough, java_group alias, js_prompt dedupe, PY3_PROTO wrappers, ScopedAllowBlockingForTesting
 - `gn gen` OK (~63227 targets); ninja `-j6` for `crwebkit_aar` + resource targets
 - Main AAR packaged with assets (icu/paks/snapshot_blob_64/83 locales); res AAR via packaging scripts with **named merge** of values XML (`merge_res_from_sources.py`)
-- Complete res AAR ~391K rebuilt 2026-10-30 (prior ~140K last-write-wins package obsolete — see docs §12.11)
+- Res AAR **~409K** rebuilt 2026-10-30: values merge (§12.11) + **content R shim = content∪ui** so `org.chromium.content.R$array` / `ui_com_google_android_gms_fonts_certs*` exist (§12.12). Prior ~140K and styles-only ~391K obsolete
 - Release: https://github.com/hongqing1/chromiumsdk/releases/tag/v132.0.6834.165-arm64
-- App §9 integrate in progress (unblocked after complete res upload)
+- App §9 integrate in progress (unblocked after complete res + content∪ui shim)
 
 ## Artifacts (not in git)
 
 | File | Notes |
 |------|--------|
 | `crwebview-132.0.6834.165.aar` | ~105M main embed AAR (arm64) with assets |
-| `crwebview-res-132.0.6834.165.aar` | **~391K** complete resource / R-shim AAR (merged styles/dimens/attrs + grit strings + shared_with_webview) |
+| `crwebview-res-132.0.6834.165.aar` | **~409K** resource / R-shim AAR (merged styles + content∪ui shims / R$array) |
 
 `v8_context_snapshot` not present in this build.
 

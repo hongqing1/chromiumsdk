@@ -48,9 +48,13 @@ echo "== Merge res from .res.sources (+ shared_with_webview + grit strings) =="
 python3 "$ROOT/packaging/merge_res_from_sources.py" "$OUT" "$PKG/src/main/res"
 
 echo "== Generate R shims =="
+# content_java merges transitive ui resources into content.R (Chromium-faithful).
+# Without ui∪content, AndroidFontLookupImpl crashes: NoClassDefFoundError content/R$array
+# for R.array.ui_com_google_android_gms_fonts_certs.
+echo "content shim sources: CONTENT ∪ UI"
 python3 "$ROOT/packaging/gen_r_shims.py" "$PKG/src/main/java" \
   "org.chromium.ui=$UI_RTXT" \
-  "org.chromium.content=$CONTENT_RTXT" \
+  "org.chromium.content=${CONTENT_RTXT}+${UI_RTXT}" \
   "org.chromium.components.embedder_support.delegate=$EMBED_RTXT" \
   "org.chromium.android_webview=$AW_RTXT" \
   "org.chromium.android_crwebview.webkit=$WEBKIT_RTXT" \
