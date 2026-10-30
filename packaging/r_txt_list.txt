@@ -1,0 +1,7 @@
+UI=/workspace/crwebview-132/src/out/crwebview_arm64/gen/android_webview/crwebview_ui_android_resources_R.txt
+CONTENT=/workspace/crwebview-132/src/out/crwebview_arm64/gen/android_webview/crwebview_content_resources_R.txt
+EMBED=/workspace/crwebview-132/src/out/crwebview_arm64/gen/android_webview/crwebview_embedder_support_resources_R.txt
+AW=/workspace/crwebview-132/src/out/crwebview_arm64/gen/android_webview/resources_R.txt
+WEBKIT=/workspace/crwebview-132/src/out/crwebview_arm64/gen/android_webview/crwebview/webkit_glue_resources_R.txt
+AUTOFILL=/workspace/crwebview-132/src/out/crwebview_arm64/gen/components/autofill/android/autofill_java_resources_R.txt
+MEDIA=/workspace/crwebview-132/src/out/crwebview_arm64/gen/media/base/android/media_java_resources_R.txt

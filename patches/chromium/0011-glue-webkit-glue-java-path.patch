@@ -1,0 +1,13 @@
+diff --git a/android_webview/glue/BUILD.gn b/android_webview/glue/BUILD.gn
+index 86b5cea..8a6bff9 100644
+--- a/android_webview/glue/BUILD.gn
++++ b/android_webview/glue/BUILD.gn
+@@ -11,7 +11,7 @@ android_library("glue_java") {
+   resources_package = "org.chromium.android_webview"
+   deps = [
+     "//android_webview:android_webview_product_config_java",
+-    "//android_webview:webkit_glue_java",
++    "//android_webview/crwebview:webkit_glue_java",
+     "//android_webview:browser_java",
+     "//android_webview:common_java",
+     "//android_webview:resources",

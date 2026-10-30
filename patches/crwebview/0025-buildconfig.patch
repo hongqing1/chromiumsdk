@@ -1,0 +1,20 @@
+diff --git a/java/src/org/chromium/build/BuildConfig.java b/java/src/org/chromium/build/BuildConfig.java
+index 1206495..fa429a6 100644
+--- a/java/src/org/chromium/build/BuildConfig.java
++++ b/java/src/org/chromium/build/BuildConfig.java
+@@ -22,13 +22,13 @@ public class BuildConfig {
+     // will never be needed in an APK with MIN_SDK_VERSION = Oreo.
+     public static int MIN_SDK_VERSION = 26;
+     // Value of android:versionCode.
+-    public static long VERSION_CODE = 20241209;
++    public static long VERSION_CODE = 20261028;
+     public static boolean IS_BUNDLE;
+     public static boolean IS_INCREMENTAL_INSTALL;
+     public static boolean IS_FOR_TEST = false;
+     public static boolean IS_CRONET_BUILD;
+     public static boolean WRITE_CLANG_PROFILING_DATA;
+-    public static boolean ENABLE_DEBUG_LOGS = true;
++    public static boolean ENABLE_DEBUG_LOGS = false;
+     public static String[] APK_ASSETS_SUFFIXED_LIST = {};
+     public static String APK_ASSETS_SUFFIX = null;
+     // Enable features that are more typically available on desktop.

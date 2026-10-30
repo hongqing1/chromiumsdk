@@ -1,0 +1,38 @@
+diff --git a/third_party/blink/renderer/build/scripts/gperf.py b/third_party/blink/renderer/build/scripts/gperf.py
+index 42630d3..8601561 100644
+--- a/third_party/blink/renderer/build/scripts/gperf.py
++++ b/third_party/blink/renderer/build/scripts/gperf.py
+@@ -34,6 +34,20 @@ def generate_gperf(gperf_path, gperf_input, gperf_args):
+         # it from gperf's output.
+         # https://savannah.gnu.org/bugs/index.php?53028
+         gperf_output = re.sub(r'\bregister ', '', gperf_output)
++        # gperf 3.2+ emits #if/#elif/#endif fallthrough attribute blocks
++        # where #endif sits between the annotation and the next case
++        # label; clang rejects that under -Wimplicit-fallthrough. Strip
++        # those blocks and keep the /*FALLTHROUGH*/ rewrite below, which
++        # places a single annotation immediately before each case.
++        gperf_output = re.sub(
++            r'#if \(defined __cplusplus && \(__cplusplus >= 201703L.*?\n'
++            r'\s*\[\[fallthrough\]\];\n'
++            r'#elif \(defined __GNUC__ && __GNUC__ >= 7\).*?\n'
++            r'\s*__attribute__ \(\(__fallthrough__\)\);\n'
++            r'#endif\n',
++            '',
++            gperf_output,
++            flags=re.DOTALL)
+         # -Wimplicit-fallthrough needs an explicit fallthrough statement,
+         # so replace gperf's /*FALLTHROUGH*/ comment with the statement.
+         # https://savannah.gnu.org/bugs/index.php?53029
+diff --git a/third_party/blink/renderer/platform/color_data.gperf b/third_party/blink/renderer/platform/color_data.gperf
+index ad273f1..827e50f 100644
+--- a/third_party/blink/renderer/platform/color_data.gperf
++++ b/third_party/blink/renderer/platform/color_data.gperf
+@@ -3,6 +3,8 @@
+ #include <string.h>
+ 
+ #pragma clang diagnostic ignored "-Wshorten-64-to-32"
++#pragma clang diagnostic ignored "-Wimplicit-fallthrough"
++#pragma GCC diagnostic ignored "-Wimplicit-fallthrough"
+ 
+ namespace blink {
+ 

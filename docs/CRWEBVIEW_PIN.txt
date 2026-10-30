@@ -1,0 +1,4 @@
+88f8fc851879853f51cc02928e95db57fe99fb0a
+upstream: https://github.com/wuruxu/crwebview.git
+# Detached HEAD at 88f8fc8 ("Update README.md") used for this build.
+# After clone, apply patches/crwebview/*.patch on top of this pin.

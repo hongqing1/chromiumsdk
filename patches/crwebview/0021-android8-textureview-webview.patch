@@ -1,0 +1,358 @@
+diff --git a/java/src/org/chromium/android_crwebview/webkit/WebView.java b/java/src/org/chromium/android_crwebview/webkit/WebView.java
+index 383476e..21b3138 100644
+--- a/java/src/org/chromium/android_crwebview/webkit/WebView.java
++++ b/java/src/org/chromium/android_crwebview/webkit/WebView.java
+@@ -51,6 +51,8 @@ import android.view.ViewGroup;
+ import android.view.Surface;
+ import android.view.SurfaceHolder;
+ import android.view.SurfaceView;
++import android.view.TextureView;
++import android.graphics.SurfaceTexture;
+ import org.chromium.base.Callback;
+ import org.chromium.base.ThreadUtils;
+ import org.chromium.android_crwebview.webkit.MyDrawFunctor;
+@@ -121,8 +123,6 @@ public class WebView extends AbsoluteLayout
+     // set in the WebView constructor.
+     private static volatile boolean sEnforceThreadChecking = false;
+         
+-    private static HandlerThread sRenderThread;
+-    private static Handler sRenderThreadHandler;
+     private HardwareView mHardwareView;
+     /**
+      *  Transportation object for returning WebView across thread boundaries.
+@@ -331,145 +331,68 @@ public class WebView extends AbsoluteLayout
+         }
+     }
+ 
+-    private static class HardwareView extends SurfaceView implements SurfaceHolder.Callback {
+-        // Only accessed on UI thread.
++    private static class HardwareView extends TextureView
++            implements TextureView.SurfaceTextureListener {
+         private int mWidth;
+         private int mHeight;
+         private int mLastScrollX;
+         private int mLastScrollY;
+         private boolean mHaveSurface;
+-        private Runnable mReadyToRenderCallback;
+-        private SurfaceView mOverlaysSurfaceView;
+-
+-        // Only accessed on render thread.
++        private Surface mSurface;
+         private final MyDrawFunctor mDrawFunctor;
+ 
+-        public HardwareView(Context context, Looper mWebViewThread) {
++        HardwareView(Context context) {
+             super(context);
+-            if (sRenderThread == null) {
+-                sRenderThread = new HandlerThread("RenderThreadInstr");
+-                sRenderThread.start();
+-                //sRenderThreadHandler = new Handler(sRenderThread.getLooper());
+-                sRenderThreadHandler = new Handler(mWebViewThread);
+-            }
+             mDrawFunctor = new MyDrawFunctor();
+-            getHolder().setFormat(PixelFormat.TRANSPARENT);
+-            getHolder().addCallback(this);
+-
+-            // Main SurfaceView needs to be positioned above the media content.
+-            setZOrderMediaOverlay(true);
+-
+-            mOverlaysSurfaceView = new SurfaceView(context);
+-            mOverlaysSurfaceView.getHolder().addCallback(this);
+-
+-            // This SurfaceView is used to present media and must be positioned below main surface.
+-            mOverlaysSurfaceView.setZOrderMediaOverlay(false);
+-        }
+-
+-        public void readbackQuadrantColors(Callback<int[]> callback) {
+-            //sRenderThreadHandler.post(
+-            //        () -> {
+-            //            callback.onResult(
+-            //                    mDrawFunctor.draw(
+-            //                            mWidth,
+-            //                            mHeight,
+-            //                            mLastScrollX,
+-            //                            mLastScrollY,
+-            //                            /* readbackQuadrants= */ true));
+-            //        });
++            setOpaque(false);
++            setSurfaceTextureListener(this);
+         }
+ 
+-        public boolean isReadyToRender() {
+-            return mHaveSurface;
+-        }
+-
+-        public void setReadyToRenderCallback(Runnable runner) {
+-            assert !isReadyToRender() || runner == null;
+-            mReadyToRenderCallback = runner;
+-        }
+-
+-        public SurfaceView getOverlaysView() {
+-            return mOverlaysSurfaceView;
+-        }
+-
+-        @Override
+-        public void surfaceCreated(SurfaceHolder holder) {}
+-
+         @Override
+-        public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
+-            Log.i("crWebView", " surfaceChanged  called mHardwareView = " + this);
+-            if (holder == mOverlaysSurfaceView.getHolder()) {
+-                Surface surface = holder.getSurface();
+-                //sRenderThreadHandler.post(
+-                ThreadUtils.postOnUiThread(
+-                        () -> {
+-                            mDrawFunctor.setOverlaysSurface(surface);
+-                        });
+-                return;
+-            }
+-
++        public void onSurfaceTextureAvailable(SurfaceTexture texture, int width, int height) {
++            mSurface = new Surface(texture);
+             mWidth = width;
+             mHeight = height;
+             mHaveSurface = true;
+-
+-            Log.i("crWebView", "surfaceChanged setSurface width " + width + " height " + height + " this " + this);
+-            Surface surface = holder.getSurface();
+-            //sRenderThreadHandler.post(
+-            ThreadUtils.postOnUiThread(
+-                    () -> {
+-                        mDrawFunctor.setSurface(surface, width, height);
+-                    });
++            mDrawFunctor.setSurface(mSurface, width, height);
++            ((View) getParent()).invalidate();
+         }
+ 
+         @Override
+-        public void surfaceDestroyed(SurfaceHolder holder) {
+-            if (holder == mOverlaysSurfaceView.getHolder()) {
+-                //WaitableEvent event = new WaitableEvent();
+-                //sRenderThreadHandler.post(
+-                ThreadUtils.postOnUiThread(
+-                        () -> {
+-                            mDrawFunctor.setOverlaysSurface(null);
+-                            //event.signal();
+-                        });
+-                //event.waitForEvent();
+-                return;
+-            }
++        public void onSurfaceTextureSizeChanged(SurfaceTexture texture, int width, int height) {
++            mWidth = width;
++            mHeight = height;
++            mDrawFunctor.setSurface(mSurface, width, height);
++        }
+ 
+-            Log.i("crWebView", "surfaceDestroyed setSurface null 0 0 this = " + this);
++        @Override
++        public boolean onSurfaceTextureDestroyed(SurfaceTexture texture) {
+             mHaveSurface = false;
+-            //WaitableEvent event = new WaitableEvent();
+-            //sRenderThreadHandler.post(
+-            //ThreadUtils.runOnUiThreadBlocking(
+-            ThreadUtils.postOnUiThread(
+-                    () -> {
+-                        mDrawFunctor.setSurface(null, 0, 0);
+-                        //event.signal();
+-                    });
+-            //event.waitForEvent();
++            mDrawFunctor.setSurface(null, 0, 0);
++            mSurface.release();
++            mSurface = null;
++            return true;
+         }
+ 
+-        public void updateScroll(int x, int y) {
++        @Override
++        public void onSurfaceTextureUpdated(SurfaceTexture texture) {}
++
++        void updateScroll(int x, int y) {
+             mLastScrollX = x;
+             mLastScrollY = y;
+         }
+ 
+-        public void drawWebViewFunctor(int functor) {
++        void drawWebViewFunctor(int functor) {
+             if (!mHaveSurface) {
+                 return;
+             }
+-
+-            Log.i("crWebView", " *** drawWebViewFunctor functor " + functor + " mHaveSurface " + mHaveSurface);
+-            //WaitableEvent syncEvent = new WaitableEvent();
+-            //ThreadUtils.getUiThreadHandler().post(
+-            ThreadUtils.postOnUiThread(
+-                    () -> {
+-                        //drawOnRt(syncEvent, functor, mWidth, mHeight, mLastScrollX, mLastScrollY);
+-                        Log.i("crWebView", " ** drawOnRt sync functor " + functor + " mHardwareView " + this);
+-                        mDrawFunctor.sync(functor, false);
+-                        //syncEvent.signal();
+-                        mDrawFunctor.draw(mWidth, mHeight, mLastScrollX, mLastScrollY, /* readbackQuadrants= */ false);
+-                    });
+-            //syncEvent.waitForEvent();
++            ThreadUtils.postOnUiThread(() -> {
++                if (!mHaveSurface) {
++                    return;
++                }
++                mDrawFunctor.sync(functor, false);
++                mDrawFunctor.draw(mWidth, mHeight, mLastScrollX, mLastScrollY, false);
++            });
+         }
+     }
+ 
+@@ -592,13 +515,14 @@ public class WebView extends AbsoluteLayout
+             boolean privateBrowsing) {
+         super(context, attrs, defStyleAttr, defStyleRes);
+ 
+-        Log.i("crWebView", " ** WebView instance created called ** ");
+         // WebView is important by default, unless app developer overrode attribute.
+         if (getImportantForAutofill() == IMPORTANT_FOR_AUTOFILL_AUTO) {
+             setImportantForAutofill(IMPORTANT_FOR_AUTOFILL_YES);
+         }
+-        if (getImportantForContentCapture() == IMPORTANT_FOR_CONTENT_CAPTURE_AUTO) {
+-            setImportantForContentCapture(IMPORTANT_FOR_CONTENT_CAPTURE_YES);
++        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
++            if (getImportantForContentCapture() == IMPORTANT_FOR_CONTENT_CAPTURE_AUTO) {
++                setImportantForContentCapture(IMPORTANT_FOR_CONTENT_CAPTURE_YES);
++            }
+         }
+ 
+         if (context == null) {
+@@ -617,9 +541,8 @@ public class WebView extends AbsoluteLayout
+         // Post condition of creating a webview is the CookieSyncManager.getInstance() is allowed.
+         CookieSyncManager.setGetInstanceIsAllowed();
+ 
+-        mHardwareView = new HardwareView(context, mWebViewThread);
++        mHardwareView = new HardwareView(context);
+         addView(mHardwareView, new FrameLayout.LayoutParams( FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
+-        Log.i("crWebView", "WebView *xy3* addView mHardwareView " + mHardwareView + " Application Context " +  context.getApplicationContext());
+     }
+ 
+     public void drawWebViewFunctor(Canvas canvas, int functor) {
+@@ -897,10 +820,8 @@ public class WebView extends AbsoluteLayout
+      * @param additionalHttpHeaders map with additional headers
+      */
+     public void loadUrl(String url, Map<String, String> additionalHttpHeaders) {
+-        Log.i("crWebView", "*loadUrl STEP 001 url " + url);
+         checkThread();
+         mProvider.loadUrl(url, additionalHttpHeaders);
+-        Log.i("crWebView", "**loadUrl STEP 001 url " + url);
+     }
+ 
+     /**
+@@ -911,10 +832,8 @@ public class WebView extends AbsoluteLayout
+      * @param url the URL of the resource to load
+      */
+     public void loadUrl(String url) {
+-        Log.i("crWebView", "*loadUrl STEP 002 url " + url);
+         checkThread();
+         mProvider.loadUrl(url);
+-        Log.i("crWebView", "**loadUrl STEP 002 url " + url);
+     }
+ 
+     /**
+@@ -927,14 +846,12 @@ public class WebView extends AbsoluteLayout
+      *     be "application/x-www-form-urlencoded" encoded.
+      */
+     public void postUrl(String url, byte[] postData) {
+-        Log.i("crWebView", "*postUrl STEP 003 url " + url);
+         checkThread();
+         if (URLUtil.isNetworkUrl(url)) {
+             mProvider.postUrl(url, postData);
+         } else {
+             mProvider.loadUrl(url);
+         }
+-        Log.i("crWebView", "**postUrl STEP 003 url " + url);
+     }
+ 
+     /**
+@@ -994,10 +911,8 @@ public class WebView extends AbsoluteLayout
+      */
+     public void loadData(String data, String mimeType,
+             String encoding) {
+-        Log.i("crWebView", "*loadData STEP 001 data " + data);
+         checkThread();
+         mProvider.loadData(data, mimeType, encoding);
+-        Log.i("crWebView", "**loadData STEP 001 data " + data);
+     }
+ 
+     /**
+@@ -1044,10 +959,8 @@ public class WebView extends AbsoluteLayout
+      */
+     public void loadDataWithBaseURL(String baseUrl, String data,
+             String mimeType, String encoding, String historyUrl) {
+-        Log.i("crWebView", "*loadDataWithBaseURL STEP 001 baseUrl " + baseUrl + " data " + data);
+         checkThread();
+         mProvider.loadDataWithBaseURL(baseUrl, data, mimeType, encoding, historyUrl);
+-        Log.i("crWebView", "**loadDataWithBaseURL STEP 001 baseUrl" + baseUrl + " data " + data);
+     }
+ 
+     /**
+@@ -1069,10 +982,8 @@ public class WebView extends AbsoluteLayout
+      */
+     public void evaluateJavascript(String script, ValueCallback<String>
+             resultCallback) {
+-        Log.i("crWebView", "*evaluateJavascript STEP 001 script " + script);
+         checkThread();
+         mProvider.evaluateJavaScript(script, resultCallback);
+-        Log.i("crWebView", "**evaluateJavascript STEP 001 script " + script);
+     }
+ 
+     /**
+@@ -2549,7 +2460,6 @@ public class WebView extends AbsoluteLayout
+         }
+ 
+         public boolean super_performAccessibilityAction(int action, Bundle arguments) {
+-			Log.i("crWebView", "super_performAccessibilityAction called");
+ 			return false;
+             //return WebView.super.performAccessibilityActionInternal(action, arguments);
+         }
+@@ -2559,7 +2469,6 @@ public class WebView extends AbsoluteLayout
+         }
+ 
+         public boolean super_setFrame(int left, int top, int right, int bottom) {
+-			Log.i("crWebView", " super_setFrame called");
+ 			return false;
+             //return WebView.super.setFrame(left, top, right, bottom);
+         }
+@@ -2581,7 +2490,6 @@ public class WebView extends AbsoluteLayout
+         }
+ 
+         public void super_startActivityForResult(Intent intent, int requestCode) {
+-			Log.i("crWebView", "super_startActivityForResult called");
+         }
+ 
+         /**
+@@ -2610,12 +2518,10 @@ public class WebView extends AbsoluteLayout
+         }
+ 
+         public float getVerticalScrollFactor() {
+-			Log.i("crWebView", " getVerticalScrollFactor called, return 1.0f");
+             return 1.0f; //WebView.this.getVerticalScrollFactor();
+         }
+ 
+         public float getHorizontalScrollFactor() {
+-			Log.i("crWebView", "getHorizontalScrollFactor called, return 1.0f");
+             return 1.0f; //WebView.this.getHorizontalScrollFactor();
+         }
+ 
+@@ -2633,20 +2539,17 @@ public class WebView extends AbsoluteLayout
+ 
+         public void super_onDrawVerticalScrollBar(Canvas canvas, Drawable scrollBar,
+                 int l, int t, int r, int b) {
+-			Log.i("crWebView", "super_onDrawVerticalScrollBar called");
+             //WebView.super.onDrawVerticalScrollBar(canvas, scrollBar, l, t, r, b);
+         }
+ 
+         // ---- Access to (non-public) fields ----
+         /** Raw setter for the scroll X value, without invoking onScrollChanged handlers etc. */
+         public void setScrollXRaw(int scrollX) {
+-			Log.i("crWebView", "setScrollXRaw called scrollX = " + scrollX);
+             //WebView.this.mScrollX = scrollX;
+         }
+ 
+         /** Raw setter for the scroll Y value, without invoking onScrollChanged handlers etc. */
+         public void setScrollYRaw(int scrollY) {
+-			Log.i("crWebView", "setScrollYRaw called scrollY = " + scrollY);
+             //WebView.this.mScrollY = scrollY;
+         }
+ 

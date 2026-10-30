@@ -1,0 +1,21 @@
+diff --git a/android_webview/glue/java/src/com/android/webview/chromium/Profile.java b/android_webview/glue/java/src/com/android/webview/chromium/Profile.java
+index 3eee2f61c7..39524ab587 100644
+--- a/android_webview/glue/java/src/com/android/webview/chromium/Profile.java
++++ b/android_webview/glue/java/src/com/android/webview/chromium/Profile.java
+@@ -4,11 +4,11 @@
+ 
+ package com.android.webview.chromium;
+ 
+-import android.webkit.CookieManager;
+-import android.webkit.GeolocationPermissions;
+-import android.webkit.ServiceWorkerController;
+-import android.webkit.ValueCallback;
+-import android.webkit.WebStorage;
++import org.chromium.android_crwebview.webkit.CookieManager;
++import org.chromium.android_crwebview.webkit.GeolocationPermissions;
++import org.chromium.android_crwebview.webkit.ServiceWorkerController;
++import org.chromium.android_crwebview.webkit.ValueCallback;
++import org.chromium.android_crwebview.webkit.WebStorage;
+ 
+ import androidx.annotation.AnyThread;
+ import androidx.annotation.NonNull;

@@ -1,0 +1,20 @@
+diff --git a/android_webview/glue/java/src/com/android/webview/chromium/WebViewChromiumFactoryProvider.java b/android_webview/glue/java/src/com/android/webview/chromium/WebViewChromiumFactoryProvider.java
+index 67fc407..f255191 100644
+--- a/android_webview/glue/java/src/com/android/webview/chromium/WebViewChromiumFactoryProvider.java
++++ b/android_webview/glue/java/src/com/android/webview/chromium/WebViewChromiumFactoryProvider.java
+@@ -473,14 +473,7 @@ public class WebViewChromiumFactoryProvider implements WebViewFactoryProvider {
+                     String dataDirectoryBasePath = androidXConfig.getDataDirectoryBasePathOrNull();
+                     String cacheDirectoryBasePath =
+                             androidXConfig.getCacheDirectoryBasePathOrNull();
+-                    String dataDirectorySuffix;
+-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+-                        dataDirectorySuffix =
+-                                GlueApiHelperForP.getDataDirectorySuffix(webViewDelegate);
+-                    } else {
+-                        // Try the AndroidX library version
+-                        dataDirectorySuffix = androidXConfig.getDataDirectorySuffixOrNull();
+-                    }
++                    String dataDirectorySuffix = WebViewFactory.getDataDirectorySuffix();
+                     AwBrowserProcess.loadLibrary(
+                             dataDirectoryBasePath, cacheDirectoryBasePath, dataDirectorySuffix);
+                 }

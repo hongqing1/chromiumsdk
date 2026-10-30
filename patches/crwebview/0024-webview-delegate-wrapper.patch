@@ -1,0 +1,87 @@
+diff --git a/java/src/android/webkit/WebViewDelegateWrapper.java b/java/src/android/webkit/WebViewDelegateWrapper.java
+index 0890889..29816ca 100644
+--- a/java/src/android/webkit/WebViewDelegateWrapper.java
++++ b/java/src/android/webkit/WebViewDelegateWrapper.java
+@@ -16,6 +16,8 @@
+ 
+ package android.webkit;
+ 
++import org.chromium.android_crwebview.webkit.WebViewFactory;
++
+ import android.app.Application;
+ import android.content.Context;
+ import android.content.pm.ApplicationInfo;
+@@ -60,7 +62,6 @@ public final class WebViewDelegateWrapper {
+      * enabled/disabled.
+      */
+     public void setOnTraceEnabledChangeListener(final OnTraceEnabledChangeListener listener) {
+-		Log.i("crWebView", "setOnTraceEnabledChangeListener called");
+     }
+ 
+     /**
+@@ -120,7 +121,6 @@ public final class WebViewDelegateWrapper {
+                     + " is not a RecordingCanvas canvas");
+         }
+         //webkitDelegate.drawWebViewFunctor(canvas, functor);
+-        Log.i("crWebView", " WebViewDelegateWrapper drawWebViewFunctor called");
+         //canvas.drawRect(20, 20, 300, 300, paint);
+         //webkitDelegate.drawWebViewFunctor(canvas, functor);
+         try {
+@@ -154,7 +154,6 @@ public final class WebViewDelegateWrapper {
+             //Log.i("crWebView", "WebViewDelegateWrapper drawWebViewFunctor mNativeCanvasWrapper " + mNativeCanvasWrapper);
+         } catch (Exception e) {
+             e.printStackTrace();
+-            Log.i("crWebView", " WebViewDelegateWrapper drawWebViewFunctor invoke failed ");
+         }
+ 		//Log.i("crWebView", " *** WebViewDelegateWrapper drawWebViewFunctor called");
+         //((RecordingCanvas) canvas).drawWebViewFunctor(functor);
+@@ -169,14 +168,12 @@ public final class WebViewDelegateWrapper {
+      */
+     @Deprecated
+     public void detachDrawGlFunctor(View containerView, long nativeDrawGLFunctor) {
+-		Log.i("crWebView", "WebViewDelegateWrapper detachDrawGlFunctor called");
+     }
+ 
+     /**
+      * Returns the package id of the given {@code packageName}.
+      */
+     public int getPackageId(Resources resources, String packageName) {
+-		Log.i("crWebView", "WebViewDelegateWrapper getPackageId called, packageName " + packageName);
+         return 0;
+     }
+ 
+@@ -187,7 +184,6 @@ public final class WebViewDelegateWrapper {
+         try {
+             Class activityThreadClass = Class.forName("android.app.ActivityThread");
+             Object currentApplication = activityThreadClass.getMethod("currentApplication").invoke(null);
+-		    Log.i("crWebView", "WebViewDelegateWrapper getApplication called" + currentApplication);
+             return (Application)currentApplication;
+         } catch (Exception e) {
+             return null;
+@@ -198,7 +194,6 @@ public final class WebViewDelegateWrapper {
+      * Returns the error string for the given {@code errorCode}.
+      */
+     public String getErrorString(Context context, int errorCode) {
+-        Log.i("crWebView", " getErrorString called ");
+         return "crError=" + errorCode ;//LegacyErrorStrings.getString(errorCode, context);
+     }
+ 
+@@ -210,7 +205,6 @@ public final class WebViewDelegateWrapper {
+      * otherwise it behaves the old way.
+      */
+     public void addWebViewAssetPath(Context context) {
+-		Log.i("crWebView", "addWebViewAssetPath called");
+     }
+ 
+     /**
+@@ -224,9 +218,7 @@ public final class WebViewDelegateWrapper {
+     // * Returns the data directory suffix to use, or null for none.
+     // */
+     public String getDataDirectorySuffix() {
+-        Log.i("crWebView", " getDataDirectorySuffix called");
+-        return "";
+-        //return WebViewFactory.getDataDirectorySuffix();
++        return WebViewFactory.getDataDirectorySuffix();
+     }
+ 
+     /**

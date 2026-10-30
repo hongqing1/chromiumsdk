@@ -1,0 +1,394 @@
+diff --git a/java/src/draw_fn/draw_functor.cc b/java/src/draw_fn/draw_functor.cc
+index 5bdc9f6..229a5b1 100644
+--- a/java/src/draw_fn/draw_functor.cc
++++ b/java/src/draw_fn/draw_functor.cc
+@@ -5,8 +5,11 @@
+ #include "android_webview/crwebview/java/src/draw_fn/draw_functor.h"
+ 
+ #include <EGL/egl.h>
++#include <EGL/eglext.h>
+ #include <GLES2/gl2.h>
+ 
++#include <vector>
++
+ #include "android_webview/public/browser/draw_fn.h"
+ #include "android_webview/crwebview/java/src/draw_fn/allocator.h"
+ #include "base/android/jni_array.h"
+@@ -76,6 +79,331 @@ void SetColorSpace(T* params) {
+   params->color_space_toXYZD50[8] = 0.714191;
+ }
+ 
++class MyDrawFunctorGL : public DrawFunctor {
++  // TODO(penghuang): remove those proc types when EGL header is updated to 1.5.
++  typedef EGLBoolean(EGLAPIENTRYP PFNEGLINITIALIZEPROC)(EGLDisplay dpy,
++                                                        EGLint* major,
++                                                        EGLint* minor);
++  typedef EGLBoolean(EGLAPIENTRYP PFNEGLCHOOSECONFIGPROC)(
++      EGLDisplay dpy,
++      const EGLint* attrib_list,
++      EGLConfig* configs,
++      EGLint config_size,
++      EGLint* num_config);
++  typedef EGLContext(EGLAPIENTRYP PFNEGLCREATECONTEXTPROC)(
++      EGLDisplay dpy,
++      EGLConfig config,
++      EGLContext share_context,
++      const EGLint* attrib_list);
++  typedef EGLSurface(EGLAPIENTRYP PFNEGLCREATEWINDOWSURFACEPROC)(
++      EGLDisplay dpy,
++      EGLConfig config,
++      EGLNativeWindowType win,
++      const EGLint* attrib_list);
++  typedef EGLBoolean(EGLAPIENTRYP PFNEGLDESTROYCONTEXTPROC)(EGLDisplay dpy,
++                                                            EGLContext ctx);
++  typedef EGLBoolean(EGLAPIENTRYP PFNEGLDESTROYSURFACEPROC)(EGLDisplay dpy,
++                                                            EGLSurface surface);
++  typedef EGLDisplay(EGLAPIENTRYP PFNEGLGETDISPLAYPROC)(
++      EGLNativeDisplayType display_id);
++  typedef __eglMustCastToProperFunctionPointerType(
++      EGLAPIENTRYP PFNEGLGETPROCADDRESSPROC)(const char* procname);
++  typedef EGLBoolean(EGLAPIENTRYP PFNEGLMAKECURRENTPROC)(EGLDisplay dpy,
++                                                         EGLSurface draw,
++                                                         EGLSurface read,
++                                                         EGLContext ctx);
++  typedef EGLBoolean(EGLAPIENTRYP PFNEGLSWAPBUFFERSPROC)(EGLDisplay dpy,
++                                                         EGLSurface surface);
++  typedef EGLBoolean(EGLAPIENTRYP PFNEGLBINDAPIPROC)(EGLenum api);
++  typedef void(GL_APIENTRYP PFNGLDISABLEPROC)(GLenum cap);
++  typedef void(GL_APIENTRYP PFNGLCLEARCOLORPROC)(GLfloat red,
++                                                 GLfloat green,
++                                                 GLfloat blue,
++                                                 GLfloat alpha);
++  typedef void(GL_APIENTRYP PFNGLCLEARPROC)(GLbitfield mask);
++
++  PFNEGLGETPROCADDRESSPROC eglGetProcAddressFn = nullptr;
++  PFNEGLBINDAPIPROC eglBindAPIFn = nullptr;
++  PFNEGLINITIALIZEPROC eglInitialize = nullptr;
++  PFNEGLGETDISPLAYPROC eglGetDisplayFn = nullptr;
++  PFNEGLMAKECURRENTPROC eglMakeCurrentFn = nullptr;
++  PFNEGLSWAPBUFFERSPROC eglSwapBuffersFn = nullptr;
++  PFNEGLCHOOSECONFIGPROC eglChooseConfigFn = nullptr;
++  PFNEGLCREATECONTEXTPROC eglCreateContextFn = nullptr;
++  PFNEGLDESTROYCONTEXTPROC eglDestroyContextFn = nullptr;
++  PFNEGLCREATEWINDOWSURFACEPROC eglCreateWindowSurfaceFn = nullptr;
++  PFNEGLDESTROYSURFACEPROC eglDestroySurfaceFn = nullptr;
++  PFNGLREADPIXELSPROC glReadPixelsFn = nullptr;
++  PFNGLDISABLEPROC glDisableFn = nullptr;
++  PFNGLCLEARCOLORPROC glClearColorFn = nullptr;
++  PFNGLCLEARPROC glClearFn = nullptr;
++
++  template <typename T>
++  void AssignProc(T& fn, const char* name) {
++    fn = reinterpret_cast<T>(eglGetProcAddressFn(name));
++    CHECK(fn) << "Failed to get " << name;
++  }
++
++  void InitializeGLBindings() {
++    if (eglGetProcAddressFn)
++      return;
++
++    // ScopedAllowBlocking ctor is private (friend-gated). Same one-shot
++    // libEGL load as android_webview/test/shell/.../context_manager.cc.
++    base::ScopedAllowBlockingForTesting allow_blocking;
++    base::NativeLibraryLoadError error;
++    base::FilePath filename("libEGL.so");
++    base::NativeLibrary egl_library = base::LoadNativeLibrary(filename, &error);
++    CHECK(egl_library) << "Failed to load " << filename.MaybeAsASCII() << ": "
++                       << error.ToString();
++
++    eglGetProcAddressFn = reinterpret_cast<PFNEGLGETPROCADDRESSPROC>(
++        base::GetFunctionPointerFromNativeLibrary(egl_library,
++                                                  "eglGetProcAddress"));
++    CHECK(eglGetProcAddressFn) << "Failed to get eglGetProcAddress.";
++
++    AssignProc(eglBindAPIFn, "eglBindAPI");
++    AssignProc(eglInitialize, "eglInitialize");
++    AssignProc(eglGetDisplayFn, "eglGetDisplay");
++    AssignProc(eglMakeCurrentFn, "eglMakeCurrent");
++    AssignProc(eglSwapBuffersFn, "eglSwapBuffers");
++    AssignProc(eglChooseConfigFn, "eglChooseConfig");
++    AssignProc(eglCreateContextFn, "eglCreateContext");
++    AssignProc(eglDestroyContextFn, "eglDestroyContext");
++    AssignProc(eglCreateWindowSurfaceFn, "eglCreateWindowSurface");
++    AssignProc(eglDestroySurfaceFn, "eglDestroySurface");
++    AssignProc(glReadPixelsFn, "glReadPixels");
++    AssignProc(glDisableFn, "glDisable");
++    AssignProc(glClearColorFn, "glClearColor");
++    AssignProc(glClearFn, "glClear");
++  }
++
++  EGLDisplay GetDisplay() {
++    static EGLDisplay display = nullptr;
++    if (!display) {
++      display = eglGetDisplayFn(EGL_DEFAULT_DISPLAY);
++      CHECK_NE(display, EGL_NO_DISPLAY);
++      CHECK(eglInitialize(display, nullptr, nullptr));
++    }
++    return display;
++  }
++
++  int rgbaToArgb(GLubyte* bytes) {
++    return (bytes[3] & 0xff) << 24 | (bytes[0] & 0xff) << 16 |
++           (bytes[1] & 0xff) << 8 | (bytes[2] & 0xff);
++  }
++
++  EGLConfig GetConfig(bool* out_use_es3) {
++    static EGLConfig config = nullptr;
++    static bool use_es3 = false;
++    if (config) {
++      *out_use_es3 = use_es3;
++      return config;
++    }
++
++    for (bool try_es3 : std::vector<bool>{true, false}) {
++      EGLint config_attribs[] = {
++          EGL_BUFFER_SIZE,
++          32,
++          EGL_ALPHA_SIZE,
++          8,
++          EGL_BLUE_SIZE,
++          8,
++          EGL_GREEN_SIZE,
++          8,
++          EGL_RED_SIZE,
++          8,
++          EGL_SAMPLES,
++          -1,
++          EGL_DEPTH_SIZE,
++          -1,
++          EGL_STENCIL_SIZE,
++          -1,
++          EGL_RENDERABLE_TYPE,
++          try_es3 ? EGL_OPENGL_ES3_BIT : EGL_OPENGL_ES2_BIT,
++          EGL_SURFACE_TYPE,
++          EGL_WINDOW_BIT | EGL_PBUFFER_BIT,
++          EGL_NONE};
++      EGLint num_configs = 0;
++      if (!eglChooseConfigFn(GetDisplay(), config_attribs, nullptr, 0,
++                             &num_configs) ||
++          num_configs == 0) {
++        continue;
++      }
++
++      CHECK(eglChooseConfigFn(GetDisplay(), config_attribs, &config, 1,
++                              &num_configs));
++      use_es3 = try_es3;
++      break;
++    }
++
++    CHECK(config);
++    *out_use_es3 = use_es3;
++    return config;
++  }
++
++ public:
++  MyDrawFunctorGL();
++  ~MyDrawFunctorGL() override;
++
++  void ResizeSurface(JNIEnv* env, int width, int height) override {}
++  base::android::ScopedJavaLocalRef<jintArray> Draw(
++      JNIEnv* env,
++      int width,
++      int height,
++      int scroll_x,
++      int scroll_y,
++      jboolean readback_quadrants) override;
++  void DoCreateContext(JNIEnv* env, int width, int height) override;
++  void DestroyContext() override;
++  void CurrentFunctorChanged() override {}
++
++ private:
++  void MakeCurrent();
++
++  EGLSurface gl_surface_ = nullptr;
++  EGLContext gl_context_ = nullptr;
++};
++
++MyDrawFunctorGL::MyDrawFunctorGL() {
++  InitializeGLBindings();
++}
++
++MyDrawFunctorGL::~MyDrawFunctorGL() {
++  DestroyContext();
++}
++
++base::android::ScopedJavaLocalRef<jintArray> MyDrawFunctorGL::Draw(
++    JNIEnv* env,
++    int width,
++    int height,
++    int scroll_x,
++    int scroll_y,
++    jboolean readback_quadrants) {
++  int results[] = {0, 0, 0, 0};
++  if (!current_functor_ || !gl_context_) {
++    LOG(ERROR) << "Draw failed. context:" << gl_context_
++               << " functor:" << current_functor_;
++    return readback_quadrants ? base::android::ToJavaIntArray(env, results)
++                              : nullptr;
++  }
++
++  MakeCurrent();
++  glDisableFn(GL_SCISSOR_TEST);
++  glClearColorFn(0, 0, 0, 0);
++  glClearFn(GL_COLOR_BUFFER_BIT);
++  AwDrawFn_DrawGLParams params{kAwDrawFnVersion};
++  params.width = width;
++  params.height = height;
++  params.clip_left = 0;
++  params.clip_top = 0;
++  params.clip_bottom = height;
++  params.clip_right = width;
++  params.transform[0] = 1.0;
++  params.transform[1] = 0.0;
++  params.transform[2] = 0.0;
++  params.transform[3] = 0.0;
++
++  params.transform[4] = 0.0;
++  params.transform[5] = 1.0;
++  params.transform[6] = 0.0;
++  params.transform[7] = 0.0;
++
++  params.transform[8] = 0.0;
++  params.transform[9] = 0.0;
++  params.transform[10] = 1.0;
++  params.transform[11] = 0.0;
++
++  params.transform[12] = -scroll_x;
++  params.transform[13] = -scroll_y;
++  params.transform[14] = 0.0;
++  params.transform[15] = 1.0;
++
++  SetColorSpace(&params);
++  FunctorData& data = Allocator::Get()->get(current_functor_);
++  OverlaysManager::ScopedDraw scoped_draw(overlays_manager_, data, params);
++  data.functor_callbacks->draw_gl(current_functor_, data.data, &params);
++
++  if (readback_quadrants) {
++    int quarter_width = width / 4;
++    int quarter_height = height / 4;
++    GLubyte bytes[4] = {};
++    glReadPixelsFn(quarter_width, quarter_height * 3, 1, 1, GL_RGBA,
++                   GL_UNSIGNED_BYTE, bytes);
++    results[0] = rgbaToArgb(bytes);
++    glReadPixelsFn(quarter_width * 3, quarter_height * 3, 1, 1, GL_RGBA,
++                   GL_UNSIGNED_BYTE, bytes);
++    results[1] = rgbaToArgb(bytes);
++    glReadPixelsFn(quarter_width, quarter_height, 1, 1, GL_RGBA,
++                   GL_UNSIGNED_BYTE, bytes);
++    results[2] = rgbaToArgb(bytes);
++    glReadPixelsFn(quarter_width * 3, quarter_height, 1, 1, GL_RGBA,
++                   GL_UNSIGNED_BYTE, bytes);
++    results[3] = rgbaToArgb(bytes);
++  }
++
++  CHECK(eglSwapBuffersFn(GetDisplay(), gl_surface_));
++
++  return readback_quadrants ? base::android::ToJavaIntArray(env, results)
++                            : nullptr;
++}
++
++void MyDrawFunctorGL::DoCreateContext(JNIEnv* env, int width, int height) {
++  bool use_es3 = false;
++  {
++    std::vector<EGLint> egl_window_attributes;
++    egl_window_attributes.push_back(EGL_NONE);
++    gl_surface_ = eglCreateWindowSurfaceFn(GetDisplay(), GetConfig(&use_es3),
++                                           native_window_.a_native_window(),
++                                           &egl_window_attributes[0]);
++    CHECK(gl_surface_);
++  }
++
++  {
++    std::vector<EGLint> context_attributes;
++    context_attributes.push_back(EGL_CONTEXT_CLIENT_VERSION);
++    context_attributes.push_back(use_es3 ? 3 : 2);
++    context_attributes.push_back(EGL_NONE);
++
++    CHECK(eglBindAPIFn(EGL_OPENGL_ES_API));
++
++    gl_context_ = eglCreateContextFn(GetDisplay(), GetConfig(&use_es3), nullptr,
++                                     context_attributes.data());
++    CHECK(gl_context_);
++  }
++  return;
++}
++
++void MyDrawFunctorGL::DestroyContext() {
++  if (java_surface_.IsEmpty()) {
++    return;
++  }
++
++  if (current_functor_) {
++    MakeCurrent();
++    FunctorData& data = Allocator::Get()->get(current_functor_);
++    overlays_manager_.RemoveOverlays(data);
++    data.functor_callbacks->on_context_destroyed(data.functor, data.data);
++  }
++
++  DCHECK(gl_context_);
++  CHECK(eglDestroyContextFn(GetDisplay(), gl_context_));
++  gl_context_ = nullptr;
++
++  DCHECK(gl_surface_);
++  CHECK(eglDestroySurfaceFn(GetDisplay(), gl_surface_));
++  gl_surface_ = nullptr;
++
++  native_window_ = nullptr;
++  java_surface_ = nullptr;
++}
++
++void MyDrawFunctorGL::MakeCurrent() {
++  DCHECK(gl_surface_);
++  DCHECK(gl_context_);
++  CHECK(eglMakeCurrentFn(GetDisplay(), gl_surface_, gl_surface_, gl_context_));
++}
++
+ class VkFunctorDrawHandler : public SkDrawable::GpuDrawHandler {
+  public:
+   VkFunctorDrawHandler(OverlaysManager* overlays_manager,
+@@ -507,25 +835,32 @@ void DrawFunctor::CreateContext(
+ 
+ static jlong JNI_MyDrawFunctor_GetDrawFnFunctionTable(JNIEnv* env,
+                                                        jboolean use_vulkan) {
+-  vulkan_implementation_ = gpu::CreateVulkanImplementation(
+-      /*use_swiftshader=*/false,
+-      /*allow_protected_memory*/ false);
+-  CHECK(vulkan_implementation_);
+-  CHECK(
+-      vulkan_implementation_->InitializeVulkanInstance(/*using_surface=*/true));
+-  uint32_t flags = gpu::VulkanDeviceQueue::GRAPHICS_QUEUE_FLAG |
+-                   gpu::VulkanDeviceQueue::PRESENTATION_SUPPORT_QUEUE_FLAG;
+-  device_queue_ =
+-      gpu::CreateVulkanDeviceQueue(vulkan_implementation_.get(), flags,
+-                                   /*gpu_info=*/nullptr, 0, true);
+-  CHECK(device_queue_);
++  if (use_vulkan) {
++    vulkan_implementation_ = gpu::CreateVulkanImplementation(
++        /*use_swiftshader=*/false,
++        /*allow_protected_memory*/ false);
++    CHECK(vulkan_implementation_);
++    CHECK(vulkan_implementation_->InitializeVulkanInstance(
++        /*using_surface=*/true));
++    uint32_t flags = gpu::VulkanDeviceQueue::GRAPHICS_QUEUE_FLAG |
++                     gpu::VulkanDeviceQueue::PRESENTATION_SUPPORT_QUEUE_FLAG;
++    device_queue_ =
++        gpu::CreateVulkanDeviceQueue(vulkan_implementation_.get(), flags,
++                                     /*gpu_info=*/nullptr, 0, true);
++    CHECK(device_queue_);
++  }
+ 
+   draw_fn::SetDrawFnUseVulkan(use_vulkan);
+   return reinterpret_cast<intptr_t>(draw_fn::GetDrawFnFunctionTable());
+ }
+ 
+ static jlong JNI_MyDrawFunctor_Init(JNIEnv* env, jboolean use_vulkan) {
+-  DrawFunctor* manager = new draw_fn::MyDrawFunctorVulkan;
++  DrawFunctor* manager = nullptr;
++  if (use_vulkan) {
++    manager = new draw_fn::MyDrawFunctorVulkan;
++  } else {
++    manager = new draw_fn::MyDrawFunctorGL;
++  }
+   return reinterpret_cast<intptr_t>(manager);
+ }
+ 

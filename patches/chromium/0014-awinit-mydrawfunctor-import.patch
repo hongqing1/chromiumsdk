@@ -1,0 +1,12 @@
+diff --git a/android_webview/glue/java/src/com/android/webview/chromium/WebViewChromiumAwInit.java b/android_webview/glue/java/src/com/android/webview/chromium/WebViewChromiumAwInit.java
+index d76307c..3412582 100644
+--- a/android_webview/glue/java/src/com/android/webview/chromium/WebViewChromiumAwInit.java
++++ b/android_webview/glue/java/src/com/android/webview/chromium/WebViewChromiumAwInit.java
+@@ -20,6 +20,7 @@ import org.chromium.android_crwebview.webkit.WebSettings;
+ import org.chromium.android_crwebview.webkit.WebStorage;
+ import org.chromium.android_crwebview.webkit.WebViewDatabase;
+ import org.chromium.android_crwebview.webkit.WebIconDatabase;
++import org.chromium.android_crwebview.webkit.MyDrawFunctor;
+ 
+ import androidx.annotation.IntDef;
+ 

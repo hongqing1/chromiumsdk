@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# Prefer Chromium tree python isolation for ninja ACTIONS that call `python3`.
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+export PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=python
+# Prepend sitecustomize dir so it loads for every python3 invocation via this wrapper.
+export PYTHONPATH="${ROOT}/python-fix${PYTHONPATH:+:${PYTHONPATH}}"
+exec /usr/bin/python3 "$@"

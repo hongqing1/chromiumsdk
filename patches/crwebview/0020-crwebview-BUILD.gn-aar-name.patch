@@ -1,0 +1,28 @@
+diff --git a/BUILD.gn b/BUILD.gn
+index e22cfd0..6037691 100644
+--- a/BUILD.gn
++++ b/BUILD.gn
+@@ -57,7 +57,6 @@ android_library("webkit_glue_java") {
+     "java/src/org/chromium/android_crwebview/webkit/JavascriptInterface.java",
+     "java/src/org/chromium/android_crwebview/webkit/URLUtil.java",
+     "java/src/org/chromium/android_crwebview/webkit/WebMessagePort.java",
+-    "java/src/org/chromium/android_crwebview/webkit/MyDrawFunctor.java",
+     #"java/src/org/chromium/android_crwebview/webkit/LegacyErrorStrings.java",
+     "java/src/org/chromium/android_crwebview/webkit/JsDialogHelper.java",
+     "java/src/org/chromium/android_crwebview/webkit/ServiceWorkerWebSettings.java",
+@@ -193,7 +192,7 @@ dist_aar("crwebkit_aar") {
+   #generate_final_jni = true
+   #shared_resources = true
+   native_libraries = [ "$root_build_dir/libwebviewchromium.so" ]
+-  android_sdk_version = "35"
++  # android_sdk_version = "35"
+ 
+   # The aar should only include weblayer files. The client will provide the
+   # support library.
+@@ -212,5 +211,5 @@ dist_aar("crwebkit_aar") {
+   # dist_aar does not take the manifest from libraries in deps, so we have to
+   # specify again here.
+   android_manifest = "webkit_AndroidManifest.xml"
+-  output = "$root_build_dir/android_crwebview_webkit.WebView-v2.0.0.aar"
++  output = "$root_build_dir/crwebview-132.0.6834.165.aar"
+ }
