@@ -1,15 +1,15 @@
 # Build status (kit mirror)
 
-**State:** BOTH_AAR_DONE + §12.13 main AAR rebuild (QueryRenderMode→GLES)
+**State:** BOTH_AAR_DONE（主 AAR：QueryRenderMode→GLES；资源 AAR：values 按名合并 + content∪ui R shim）
 **Pin:** 132.0.6834.165 / crwebview 88f8fc85
-**Updated:** 2026-10-30 10:41 Asia/Shanghai
+**Updated:** 2026-10-30 Asia/Shanghai（方案文档：踩坑已并入步骤，§12 仅历史索引）
 
 ## Artifacts (GitHub Release v132.0.6834.165-arm64)
 
 | File | Size | Notes |
 |------|------|-------|
-| `crwebview-132.0.6834.165.aar` | ~104.1M (109194997) | GLES QueryRenderMode fix (§12.13); assets injected |
-| `crwebview-res-132.0.6834.165.aar` | ~409K (417970) | content∪ui R shim (§12.12); unchanged this rebuild |
+| `crwebview-132.0.6834.165.aar` | ~104.1M (109194997) | GLES QueryRenderMode（方案 §4.2）；assets injected |
+| `crwebview-res-132.0.6834.165.aar` | ~409K (417970) | content∪ui R shim（方案 §7.4） |
 
 ## Latest fix
 

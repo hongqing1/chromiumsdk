@@ -10,7 +10,7 @@ Self-built embeddable Chromium WebView AARs for YXT Android (API 26+, GLES / Tex
 | GN args | `gn/args.gn` |
 | Release AARs | [v132.0.6834.165-arm64](https://github.com/hongqing1/chromiumsdk/releases/tag/v132.0.6834.165-arm64) |
 
-**State:** BOTH_AAR_DONE (2026-10-29–30 Asia/Shanghai). Main ~105M + **complete res ~391K** (values XML named-merge; see `packaging/README.md` and docs §12.11). See `docs/STATUS.md`.
+**State:** BOTH_AAR_DONE (2026-10-29–30 Asia/Shanghai). Main ~104–105M + **complete res ~409K** (values XML named-merge + content∪ui R shim; see `packaging/` and 方案 §7.4). See `docs/STATUS.md`.
 
 ## What is in this branch
 
@@ -20,7 +20,7 @@ Self-built embeddable Chromium WebView AARs for YXT Android (API 26+, GLES / Tex
 - `patches/crwebview/` — local edits on top of crwebview `88f8fc85` (Android 8 / GLES / TextureView / ScopedAllowBlockingForTesting / BuildConfig / QueryRenderMode↔g_use_vulkan)
 - `scripts/` — `watch_ninja.sh`, `finish_when_aar.sh`, `supervisor.sh`, plus `bin/python3*` + `python-fix/sitecustomize.py` (PY3_PROTO isolation)
 - `packaging/` — res AAR + verify scripts (no huge `_build` / `_repack` dirs)
-- `docs/` — pin files, short STATUS, full 自编译方案, BUILD_PITFALLS (§12)
+- `docs/` — pin files, short STATUS, full 自编译方案（步骤内嵌实编修正；§12 仅历史索引）, BUILD_PITFALLS（索引）
 
 ## What is NOT in this repo
 
@@ -31,7 +31,7 @@ Full Chromium source / `out/` / depot_tools / ninja logs / AAR binaries. AARs ar
 ```bash
 # 0) Host: depot_tools on PATH; ~100GB+ free disk; gperf; Python 3.x
 #    If Python 3.13 + system protobuf 7.x: copy scripts/bin + scripts/python-fix
-#    next to your build root and put bin/ first on PATH (docs/BUILD_PITFALLS.md §12.8).
+#    next to your build root and put bin/ first on PATH (方案 §2.1 / docs/BUILD_PITFALLS.md).
 
 # 1) Fetch Chromium tag 132.0.6834.165 (gclient / fetch as in docs/自编译Chromium内核方案.md §2)
 cd src
@@ -80,7 +80,7 @@ autoninja -C out/crwebview_arm64 -j6 \
 # 7) Package res AAR + inject assets into main AAR — see packaging/ and plan §7–8
 ```
 
-Patch apply order is also documented in `patches/README.md`. Pitfalls (gperf, protobuf, silent ninja death, ScopedAllowBlocking, …): `docs/BUILD_PITFALLS.md`.
+Patch apply order is also documented in `patches/README.md`. Procedural steps (incl. gperf / protobuf / GLES QueryRenderMode / res merge): `docs/自编译Chromium内核方案.md`. Short index: `docs/BUILD_PITFALLS.md`.
 
 ## Privacy / Safe Browsing
 
