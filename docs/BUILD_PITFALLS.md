@@ -135,3 +135,12 @@ export PYTHONPATH="/workspace/crwebview-132/python-fix${PYTHONPATH:+:$PYTHONPATH
 | 原因 | Chromium 把 `base::ScopedAllowBlocking` 的构造/析构收成 **仅 friend 可实例化**。`android_webview/crwebview/.../draw_functor.cc` 的 `InitializeGLBindings()` 里写了裸的 `base::ScopedAllowBlocking`（加载 `libEGL.so`）。生产路径的 friend 是 `android_webview::ScopedAllowInitGLBindings`（见 `aw_contents.cc` + `thread_restrictions.h`）；同名画图路径的 **test shell**（`android_webview/test/shell/.../context_manager.cc`）用的是 `ScopedAllowBlockingForTesting` |
 | 改法 | 把 `draw_functor.cc` 里这一处改成 `base::ScopedAllowBlockingForTesting`（与上游 test shell 同源写法一致）。改完确认 `draw_functor.o` 能编过再 `-j6` 续编；PATH/`bin/`+protobuf 隔离仍按 12.8 带着。不要对同一 private ctor 错误盲重启 |
 
+### 12.11 资源 AAR：`values/styles.xml` last-write-wins（接入 `process*Resources` 失败）
+
+| 项 | 内容 |
+|----|------|
+| 现象 | 主 AAR 已就绪、残缺 res AAR（约 140K）接入应用后，`:app:process*Resources` / 资源链接失败；缺大量 style / dimens / string。AAR 里 `values/styles.xml` 几乎只有空的 `WebViewBaseTheme` |
+| 原因 | 七个资源目标的 `values/*.xml` **相对路径同名**。打包若按路径后写覆盖，后拷的 `android_webview` 几乎空 `WebViewBaseTheme` 会盖掉先拷的 `ui` 完整 styles。layout 还依赖 grit 字符串 zip 与 `shared_with_webview` dimens，简单拷 gen res 也会漏 |
+| 改法 | **按资源名合并**，不要 stub style 打地鼠。用 `packaging/merge_res_from_sources.py` + 更新后的 `package_res_aar_finish.sh`（见 §7「合并 values，勿覆盖」）；补上 grit string zips 与 `shared_with_webview` dimens。完整 res AAR 约 **391K**，已重新上传到 [v132.0.6834.165-arm64](https://github.com/hongqing1/chromiumsdk/releases/tag/v132.0.6834.165-arm64)；packaging 修法在 kit 分支 commit `e1dcc89` |
+| 不要 | 对报错 style 名逐个写空 `<style>` 糊过去；不要继续分发 ~140K 的残缺 res AAR |
+

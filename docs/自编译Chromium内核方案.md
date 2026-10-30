@@ -1,8 +1,8 @@
-﻿# 自编译 Chromium 内核方案（基于 crwebview）
+# 自编译 Chromium 内核方案（基于 crwebview）
 
 | 项 | 内容 |
 |----|------|
-| 日期 | 2026-10-28（编译踩坑补记 2026-10-29；§12.8 protobuf；§12.9 静默退出；§12.10 ScopedAllowBlocking） |
+| 日期 | 2026-10-28（编译踩坑补记 2026-10-29；§12.8 protobuf；§12.9 静默退出；§12.10 ScopedAllowBlocking；§12.11 资源 AAR styles 覆盖 / 完整 res ~391K，2026-10-30） |
 | 来源 | [wuruxu/crwebview](https://github.com/wuruxu/crwebview) `main` 的 `88f8fc85`（2025-04-21，之后没有提交） |
 | 现在用的 | 2.0.0，内核 `132.0.6834.86`（从 AAR 里的版本串读出） |
 | 这次编 | `132.0.6834.165`，132 分支 Android 稳定版的最后一版（2025-02-04） |
@@ -16,6 +16,17 @@
 - 去掉进页闪黑：`HardwareView` 从 `SurfaceView` 换成 `TextureView`。
 
 仓库里公开的三份补丁比 2.0.0 实际用的旧，直接打上编不出 2.0.0 这套布局，第 3 节先把它们对齐。
+
+### 本轮编译 / 发布状态（2026-10-29–30 Asia/Shanghai）
+
+| 项 | 内容 |
+|----|------|
+| 状态 | **BOTH_AAR_DONE** |
+| 主 AAR | `crwebview-132.0.6834.165.aar` ~105M（含 so + classes + 注入的 `icudtl.dat` / paks / `snapshot_blob_64.bin` / 83 个 `stored-locales`；本树无 `v8_context_snapshot`） |
+| 资源 AAR | `crwebview-res-132.0.6834.165.aar` **完整重建 ~391K**（七目标 values XML 按名合并 + grit 字符串 + `shared_with_webview` dimens；见 §7、§12.11）。此前 last-write-wins 的 ~140K 残缺包已作废 |
+| GitHub Release | https://github.com/hongqing1/chromiumsdk/releases/tag/v132.0.6834.165-arm64 |
+| 重建 kit 分支 | https://github.com/hongqing1/chromiumsdk/tree/v132.0.6834.165-arm64（patches / gn / packaging / docs，无完整 Chromium 树） |
+| 应用接入 | 第 9 节进行中；曾被残缺 res 卡住（`process*Resources`），完整 res 上传后已解除该阻塞 |
 
 ## 1. 版本
 
@@ -337,8 +348,21 @@ AGP 只按 AAR 自己的 `namespace` 生成一个 `R`，资源合进一个包之
 |----|------|
 | `namespace` | `org.chromium.crwebview.res`，不和上面七个包名重复 |
 | `minSdk` | 26 |
-| `src/main/res` | 七个资源目标在 `out/crwebview_arm64/gen/` 下产出的 res 合在一起。报 `Duplicate resources` 时，两份内容一样就删一份；内容不一样就停，先查是哪两个目标 |
+| `src/main/res` | 七个资源目标在 `out/crwebview_arm64/gen/` 下产出的 res **按资源名合并**合在一起（见下「合并 values，勿覆盖」）。报 `Duplicate resources` 时，两份内容一样就删一份；内容不一样就停，先查是哪两个目标。不要对同路径 `values/*.xml` 做 last-write-wins 拷贝 |
 | `src/main/java` | 下面脚本生成的七个 `R.java` |
+
+### 合并 values，勿覆盖（packaging）
+
+七个资源目标的 `values/styles.xml`、`values/dimens.xml` 等**相对路径同名**。若打包脚本对 `res/` 做简单 `cp` / last-write-wins，后拷的包会整文件盖掉先拷的包。实编里 `android_webview` 的几乎空 `WebViewBaseTheme` 盖掉了 `ui` 的完整 styles，应用侧 `process*Resources` 随即失败（见 §12.11）。
+
+正确做法：
+
+1. 用 `packaging/merge_res_from_sources.py`：同路径 values XML **按资源名合并**（同名同内容保留一份；同名异内容要停下来查）；非 values 文件仍按路径拷贝。
+2. 一并拉入 `components/browser_ui/.../shared_with_webview` 的 dimens（如 `chip_icon_size`），以及 layout 引用的 grit 字符串 zip（`crwebview_*_strings_grd.resources.zip`）。
+3. 收尾走更新后的 `packaging/package_res_aar_finish.sh`（可 `aapt2 link`；缺宿主 AppCompat 属性时回退合成非 final 的 NS `R`）。AppCompat stub **不进** AAR。
+4. **不要**对缺失 style 做 whack-a-mole 空壳补丁；完整 res AAR 约 **391K**（残缺 last-write-wins 包约 140K，已作废）。
+
+重建 kit：https://github.com/hongqing1/chromiumsdk/tree/v132.0.6834.165-arm64 `packaging/`。
 
 转发类按七个资源目标的 `R.txt` 生成。`R.txt` 在 `out/crwebview_arm64/gen/` 下，用 `find out/crwebview_arm64/gen -name '*R.txt'` 找到这七个目标对应的那份：
 
@@ -418,13 +442,16 @@ python3 gen_r_shims.py crwebview-res/src/main/java \
 | 布局 | 有 `org/chromium/android_crwebview/webkit/WebView.class`、`MyDrawFunctor.class`；没有 `com/android/webview/chromium/MyDrawFunctor.class` |
 | GLES | `javap -c` 看 `MyDrawFunctor.class`，`init`、`getDrawFnFunctionTable` 传的是 `false`。Android 8 真机 logcat 里没有 Vulkan 初始化的日志 |
 | 重定位 | `llvm-readelf -d libwebviewchromium.so` 里没有 `RELR`、`ANDROID_RELR` |
-| assets | `icudtl.dat`、`resources.pak`、`chrome_100_percent.pak`、`snapshot_blob_64.bin`、`v8_context_snapshot_64.bin`、`stored-locales/` |
-| 资源 AAR | 只有一个 `crwebview-res-132.0.6834.165.aar`。清单 `package` 是 `org.chromium.crwebview.res`。`classes.jar` 里有第 7 节列出的每个包名的 `R` 转发类，主 AAR 里没有任何 `R.class` |
+| assets | `icudtl.dat`、`resources.pak`、`chrome_100_percent.pak`、`snapshot_blob_64.bin`、`stored-locales/`（本树 **无** `v8_context_snapshot_64.bin`，核对时勿当失败） |
+| 资源 AAR | 只有一个 `crwebview-res-132.0.6834.165.aar`（完整包约 **391K**，勿用旧 ~140K）。清单 `package` 是 `org.chromium.crwebview.res`。`classes.jar` 里有第 7 节列出的每个包名的 `R` 转发类，主 AAR 里没有任何 `R.class`。AAR 内 `values/styles.xml` 须含 ui 侧完整 theme（不止 `WebViewBaseTheme`） |
 | 日志 | `classes.jar` 里搜不到 `drawWebViewFunctor STEP` |
 
 ## 9. 换进应用
 
 接入在 `crwebview` 分支，`WebViewWrapper`、实验室开关、JSB 反射都不改。
+
+**进度（2026-10-30）：** 第 9 节接入进行中。曾因残缺 res AAR（§12.11）在 `process*Resources` 失败而阻塞；完整 ~391K res 已重新上传到 Release，该阻塞已解除。换包后仍按下面表格操作。
+
 
 | 位置 | 改法 |
 |------|------|
@@ -607,4 +634,13 @@ export PYTHONPATH="/workspace/crwebview-132/python-fix${PYTHONPATH:+:$PYTHONPATH
 | 现象 | 编到尾段（本次约剩余相 `[3745/4255]`）`FAILED: obj/android_webview/libwebviewchromium/draw_functor.o`：`error: calling a private constructor of class 'base::ScopedAllowBlocking'`，连带 private destructor；`ninja: build stopped` |
 | 原因 | Chromium 把 `base::ScopedAllowBlocking` 的构造/析构收成 **仅 friend 可实例化**。`android_webview/crwebview/.../draw_functor.cc` 的 `InitializeGLBindings()` 里写了裸的 `base::ScopedAllowBlocking`（加载 `libEGL.so`）。生产路径的 friend 是 `android_webview::ScopedAllowInitGLBindings`（见 `aw_contents.cc` + `thread_restrictions.h`）；同名画图路径的 **test shell**（`android_webview/test/shell/.../context_manager.cc`）用的是 `ScopedAllowBlockingForTesting` |
 | 改法 | 把 `draw_functor.cc` 里这一处改成 `base::ScopedAllowBlockingForTesting`（与上游 test shell 同源写法一致）。改完确认 `draw_functor.o` 能编过再 `-j6` 续编；PATH/`bin/`+protobuf 隔离仍按 12.8 带着。不要对同一 private ctor 错误盲重启 |
+
+### 12.11 资源 AAR：`values/styles.xml` last-write-wins（接入 `process*Resources` 失败）
+
+| 项 | 内容 |
+|----|------|
+| 现象 | 主 AAR 已就绪、残缺 res AAR（约 140K）接入应用后，`:app:process*Resources` / 资源链接失败；缺大量 style / dimens / string。AAR 里 `values/styles.xml` 几乎只有空的 `WebViewBaseTheme` |
+| 原因 | 七个资源目标的 `values/*.xml` **相对路径同名**。打包若按路径后写覆盖，后拷的 `android_webview` 几乎空 `WebViewBaseTheme` 会盖掉先拷的 `ui` 完整 styles。layout 还依赖 grit 字符串 zip 与 `shared_with_webview` dimens，简单拷 gen res 也会漏 |
+| 改法 | **按资源名合并**，不要 stub style 打地鼠。用 `packaging/merge_res_from_sources.py` + 更新后的 `package_res_aar_finish.sh`（见 §7「合并 values，勿覆盖」）；补上 grit string zips 与 `shared_with_webview` dimens。完整 res AAR 约 **391K**，已重新上传到 [v132.0.6834.165-arm64](https://github.com/hongqing1/chromiumsdk/releases/tag/v132.0.6834.165-arm64)；packaging 修法在 kit 分支 commit `e1dcc89` |
+| 不要 | 对报错 style 名逐个写空 `<style>` 糊过去；不要继续分发 ~140K 的残缺 res AAR |
 

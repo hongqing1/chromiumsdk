@@ -13,15 +13,17 @@
 - Layout realignment (§3), Android 8 / GLES / TextureView / data-directory (§4–5), BuildConfig/log tweaks (§6)
 - Local compile fixes: gperf/color_data fallthrough, java_group alias, js_prompt dedupe, PY3_PROTO wrappers, ScopedAllowBlockingForTesting
 - `gn gen` OK (~63227 targets); ninja `-j6` for `crwebkit_aar` + resource targets
-- Main AAR packaged with assets (icu/paks/snapshot_blob_64/83 locales); res AAR via packaging scripts
+- Main AAR packaged with assets (icu/paks/snapshot_blob_64/83 locales); res AAR via packaging scripts with **named merge** of values XML (`merge_res_from_sources.py`)
+- Complete res AAR ~391K rebuilt 2026-10-30 (prior ~140K last-write-wins package obsolete — see docs §12.11)
 - Release: https://github.com/hongqing1/chromiumsdk/releases/tag/v132.0.6834.165-arm64
+- App §9 integrate in progress (unblocked after complete res upload)
 
 ## Artifacts (not in git)
 
 | File | Notes |
 |------|--------|
-| `crwebview-132.0.6834.165.aar` | ~105M main embed AAR (arm64) |
-| `crwebview-res-132.0.6834.165.aar` | ~140K resource / R-shim AAR |
+| `crwebview-132.0.6834.165.aar` | ~105M main embed AAR (arm64) with assets |
+| `crwebview-res-132.0.6834.165.aar` | **~391K** complete resource / R-shim AAR (merged styles/dimens/attrs + grit strings + shared_with_webview) |
 
 `v8_context_snapshot` not present in this build.
 
