@@ -1,8 +1,15 @@
 # hongqing1/chromiumsdk
 
-`main` is reserved for the next Chromium embed AAR rebuild. This branch is a placeholder; that work is in progress.
+`main` is reserved for the next Chromium embed AAR rebuild. This branch is a placeholder.
 
-The previous M133 build (133.0.6943.123) lives on:
+## Latest completed builds
+
+### M132 (132.0.6834.165) — crwebview embed AARs
+
+- Branch [`v132.0.6834.165-arm64`](https://github.com/hongqing1/chromiumsdk/tree/v132.0.6834.165-arm64) — rebuild kit (patches, args.gn, scripts, docs; **no** full Chromium tree)
+- Release tag [`v132.0.6834.165-arm64`](https://github.com/hongqing1/chromiumsdk/releases/tag/v132.0.6834.165-arm64) — `crwebview-132.0.6834.165.aar` + `crwebview-res-132.0.6834.165.aar`
+
+### M133 (133.0.6943.123) — prior embed_aar kit
 
 - Branch [`v133.0.6943.123-arm64`](https://github.com/hongqing1/chromiumsdk/tree/v133.0.6943.123-arm64)
 - Release tag [`v133.0.6943.123-arm64`](https://github.com/hongqing1/chromiumsdk/releases/tag/v133.0.6943.123-arm64)
@@ -13,11 +20,18 @@ Full Chromium source is not in this repo.
 
 # hongqing1/chromiumsdk
 
-`main` 预留给下一次 Chromium embed AAR 重建，当前为占位，工作进行中。
+`main` 预留给下一次 Chromium embed AAR 重建，当前为占位。
 
-上一版 M133（133.0.6943.123）位于：
+## 已完成构建
+
+### M132（132.0.6834.165）— crwebview embed AAR
+
+- 分支 [`v132.0.6834.165-arm64`](https://github.com/hongqing1/chromiumsdk/tree/v132.0.6834.165-arm64) — 重编译套件（补丁、args.gn、脚本、文档；**不含**完整 Chromium 树）
+- Release [`v132.0.6834.165-arm64`](https://github.com/hongqing1/chromiumsdk/releases/tag/v132.0.6834.165-arm64) — `crwebview-132.0.6834.165.aar` + `crwebview-res-132.0.6834.165.aar`
+
+### M133（133.0.6943.123）— 上一版 embed_aar
 
 - 分支 [`v133.0.6943.123-arm64`](https://github.com/hongqing1/chromiumsdk/tree/v133.0.6943.123-arm64)
-- Release 标签 [`v133.0.6943.123-arm64`](https://github.com/hongqing1/chromiumsdk/releases/tag/v133.0.6943.123-arm64)
+- Release [`v133.0.6943.123-arm64`](https://github.com/hongqing1/chromiumsdk/releases/tag/v133.0.6943.123-arm64)
 
 本仓库不包含完整 Chromium 源码。
