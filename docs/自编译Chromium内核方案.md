@@ -2,7 +2,7 @@
 
 | 项 | 内容 |
 |----|------|
-| 日期 | 2026-10-30（步骤内嵌实编修正；历史索引见 §12） |
+| 日期 | 2026-11-01（步骤内嵌实编修正；历史索引见 §12） |
 | 来源 | [wuruxu/crwebview](https://github.com/wuruxu/crwebview) `main` 的 `88f8fc85`（2025-04-21，之后没有提交） |
 | 现在用的 | 2.0.0，内核 `132.0.6834.86`（从 AAR 里的版本串读出） |
 | 这次编 | `132.0.6834.165`，132 分支 Android 稳定版的最后一版（2025-02-04） |
@@ -17,16 +17,16 @@
 
 仓库里公开的三份补丁比 2.0.0 实际用的旧，直接打上编不出 2.0.0 这套布局，第 3 节先把它们对齐。
 
-### 本轮编译 / 发布状态（2026-10-29–30 Asia/Shanghai）
+### 本轮编译 / 发布状态（2026-11-01 Asia/Shanghai）
 
 | 项 | 内容 |
 |----|------|
-| 状态 | **BOTH_AAR_DONE**（主 AAR：`QueryRenderMode`→GLES；资源 AAR：values 按名合并 + content∪ui R shim） |
-| 主 AAR | `crwebview-132.0.6834.165.aar` ~104–105M（含 so + classes + 注入的 `icudtl.dat` / paks / `snapshot_blob_64.bin` / 83 个 `stored-locales`；本树无 `v8_context_snapshot`） |
-| 资源 AAR | `crwebview-res-132.0.6834.165.aar` **~409K**（values 按名合并 + grit + shared_with_webview；**content R shim = content∪ui**，含 `R$array`/`ui_com_google_android_gms_fonts_certs*`）。此前 ~140K 残缺包与仅 styles 修好的 ~391K 包均已作废 |
-| GitHub Release | https://github.com/hongqing1/chromiumsdk/releases/tag/v132.0.6834.165-arm64 |
-| 重建 kit 分支 | https://github.com/hongqing1/chromiumsdk/tree/v132.0.6834.165-arm64（patches / gn / packaging / docs，无完整 Chromium 树） |
-| 应用接入 | 第 9 节进行中；换 **主 AAR**（GLES）+ **~409K 资源 AAR** 后再测 |
+| 状态 | **OFFICIAL_THINLTO_PUBLISHED**（主 AAR：official+ThinLTO；资源 AAR：values 按名合并 + content∪ui R shim） |
+| 主 AAR | `crwebview-132.0.6834.165.aar` ~79.1M（82943728；`is_official_build=true` + ThinLTO；`symbol_level=0`；`chrome_pgo_phase=0`；`enable_resource_allowlist_generation=false` §12.17；injected locales=83；stripped `libwebviewchromium.so` ~149.6M） |
+| 资源 AAR | `crwebview-res-132.0.6834.165.aar` **~409K**（417970；未改；content∪ui R shim） |
+| GitHub Release | https://github.com/hongqing1/chromiumsdk/releases/tag/v132.0.6834.165-arm64（同 tag 已替换原 DCHECK-off ~85.3M 主包） |
+| 重建 kit 分支 | https://github.com/hongqing1/chromiumsdk/tree/v132.0.6834.165-arm64（patches / gn / packaging / docs，无完整 Chromium 树；本地 docs 待推） |
+| 应用接入 | 第 9 节进行中；换 **官方 ThinLTO 主 AAR** + **~409K 资源 AAR** 后再测 |
 
 ## 1. 版本
 
@@ -368,6 +368,10 @@ treat_warnings_as_errors = false
 
 `proprietary_codecs` 和 `ffmpeg_branding` 必须一起开，否则课件里的 H.264、AAC 没有画面。`is_official_build` 先关，不做 LTO。不填任何 Google API key。链接时内存不够，在 `args.gn` 加 `concurrent_links = 1` 再 `gn gen`。
 
+若要做体积/strip 向的 official+ThinLTO 重建：把 `is_official_build = true`，**不要**再写 `concurrent_links`（ThinLTO 会 assert），并显式 `chrome_pgo_phase = 0`（无 PGO profile 时 official 默认会走 phase 2 然后缺文件）。`gn gen` 后 `use_thin_lto` 会自动为 true。**若同时 `symbol_level = 0`（无调试符号）**，必须再写 `enable_resource_allowlist_generation = false`：official 默认会开 pak allowlist，但从 `.so` 抽 `AllowlistedResource` 符号会得到 0 条并在 `system_webview_pak_allowlist` 失败（`Suspiciously few resources found`）；关 allowlist 不影响 embed AAR 主路径。
+
+Android-only 同步（`target_os_only`）时 host/`checkout_linux` 目录常常是空的；official 图会拉 host 工具链（`wayland_scanner`、libdrm fourcc、fontconfig、bluez/`cros_system_api`）。缺头文件或 scanner 源时，按 `src/DEPS` 里对应 pin **手工 clone** 进 `third_party/...`（与全量 `gclient sync` linux 同 pin），再 `ninja -n` 干跑确认后续编。常见失败：`third_party/cros_system_api/dbus/service_constants.h` 缺失导致 `bluetooth_adapter_bluez` 编不过——clone `cros_system_api` 到 DEPS pin 即可，不必开 chromeos 全量同步。
+
 ### 7.3 并行度与启动 ninja
 
 在 8 核 / 15G 这台机上用 **`-j6`**：6 路 clang 打满时可用内存大约还剩 5G 量级，比 `-j4` 快；`-j8` 更快但 OOM 风险更大，未确认前别用。supervisor / 续编脚本里的并行度也写成 `-j6`，避免死后退回 4。调高 `-j` 时先停掉旧 ninja 再按新并行度重开。
@@ -612,3 +616,7 @@ Chrome 58、Chrome 74 那几台工单机，用这包在原设备上再打开一�
 | 12.11 | §7.4 | values 按名合并；`merge_res_from_sources.py`（`e1dcc89`） | 2026-10-29 |
 | 12.12 | §7.4 | content R shim = content∪ui；res ~409K | 2026-10-30 |
 | 12.13 | §4.2 | `QueryRenderMode`↔`g_use_vulkan`；补丁 `0026`（`921bb64`） | 2026-10-30 |
+| 12.14 | §7.2 | official+ThinLTO：去掉 `concurrent_links`；`chrome_pgo_phase=0` | 2026-10-30 |
+| 12.15 | §7.2 | official 需 host checkout_linux：wayland / libdrm / fontconfig 按 DEPS pin 手工 clone | 2026-10-30 |
+| 12.16 | §7.2 | bluez 缺 `cros_system_api` 头：clone DEPS pin `554629b9…` 后续编 | 2026-10-31 |
+| 12.17 | §7.2 | official+ThinLTO+`symbol_level=0`：`enable_resource_allowlist_generation=false`，避免 pak allowlist 0 资源失败 | 2026-11-01 |
