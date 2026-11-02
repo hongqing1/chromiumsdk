@@ -10,7 +10,7 @@ Self-built embeddable Chromium WebView AARs for YXT Android (API 26+, GLES / Tex
 | GN args | `gn/args.gn` |
 | Release AARs | [v132.0.6834.165-arm64](https://github.com/hongqing1/chromiumsdk/releases/tag/v132.0.6834.165-arm64) |
 
-**State:** BOTH_AAR_DONE (2026-10-29–30 Asia/Shanghai). Main ~104–105M + **complete res ~409K** (values XML named-merge + content∪ui R shim; see `packaging/` and 方案 §7.4). See `docs/STATUS.md`.
+**State:** OFFICIAL_THINLTO_PUBLISHED (2026-11-02 Asia/Shanghai). Main AAR official+ThinLTO **82943728** + res **~409K**; kit tip after **2913d38** (local docs sync unpushed), tag still **839e9e1**. See `docs/STATUS.md`.
 
 ## What is in this branch
 

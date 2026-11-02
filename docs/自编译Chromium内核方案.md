@@ -2,7 +2,7 @@
 
 | 项 | 内容 |
 |----|------|
-| 日期 | 2026-11-01（步骤内嵌实编修正；历史索引见 §12） |
+| 日期 | 2026-11-02（步骤内嵌实编修正；历史索引见 §12） |
 | 来源 | [wuruxu/crwebview](https://github.com/wuruxu/crwebview) `main` 的 `88f8fc85`（2025-04-21，之后没有提交） |
 | 现在用的 | 2.0.0，内核 `132.0.6834.86`（从 AAR 里的版本串读出） |
 | 这次编 | `132.0.6834.165`，132 分支 Android 稳定版的最后一版（2025-02-04） |
@@ -17,7 +17,7 @@
 
 仓库里公开的三份补丁比 2.0.0 实际用的旧，直接打上编不出 2.0.0 这套布局，第 3 节先把它们对齐。
 
-### 本轮编译 / 发布状态（2026-11-01 Asia/Shanghai）
+### 本轮编译 / 发布状态（2026-11-02 Asia/Shanghai）
 
 | 项 | 内容 |
 |----|------|
@@ -25,8 +25,8 @@
 | 主 AAR | `crwebview-132.0.6834.165.aar` ~79.1M（82943728；`is_official_build=true` + ThinLTO；`symbol_level=0`；`chrome_pgo_phase=0`；`enable_resource_allowlist_generation=false` §12.17；injected locales=83；stripped `libwebviewchromium.so` ~149.6M） |
 | 资源 AAR | `crwebview-res-132.0.6834.165.aar` **~409K**（417970；未改；content∪ui R shim） |
 | GitHub Release | https://github.com/hongqing1/chromiumsdk/releases/tag/v132.0.6834.165-arm64（同 tag 已替换原 DCHECK-off ~85.3M 主包） |
-| 重建 kit 分支 | https://github.com/hongqing1/chromiumsdk/tree/v132.0.6834.165-arm64（patches / gn / packaging / docs，无完整 Chromium 树；本地 docs 待推） |
-| 应用接入 | 第 9 节进行中；换 **官方 ThinLTO 主 AAR** + **~409K 资源 AAR** 后再测 |
+| 重建 kit 分支 | `v132.0.6834.165-arm64` 本地 tip 在 **2913d38**（§12.18）之后另有 docs sync（APK/perf/预热；**未推**）；Release/分支 tag 仍为 **839e9e1**（未移动） |
+| 应用接入 | yxt `origin/crwebview` tip **c8f90eac**（official ThinLTO + warmup 实验期 + `noCompress` dat 恢复）；本地 HEAD **630cd0965** 已去掉登录预热便于 A/B（ahead 1，未推） |
 
 ## 1. 版本
 
@@ -545,12 +545,14 @@ python3 gen_r_shims.py crwebview-res/src/main/java \
 
 接入在 `crwebview` 分支，`WebViewWrapper`、实验室开关、JSB 反射都不改。
 
-**进度（2026-10-30）：** 第 9 节接入进行中。资源 AAR（~409K，content∪ui）与主 AAR（QueryRenderMode→GLES）均已就绪；换两包后再在真机（含 MI PAD 4 / API 27）验证。
+**进度（2026-11-02 Asia/Shanghai）：** 官方 ThinLTO 主 AAR + ~409K 资源 AAR 已换进 `crwebview` 分支。MI PAD 4：ThinLTO tip `290c8219` mark→DrawFunctor 冷约 **730ms** / 热约 **675ms**，FATAL=0（含作业）。`noCompress` 必须保留 `dat`（§12.18）。登录后 `about:blank` 预热（`CrWebViewPrewarmer`）曾用于缩短首进课等待，属可选实验；本地 tip `630cd0965` **已删除**便于对比加载，非当前必接项。
 
 | 位置 | 改法 |
 |------|------|
 | `common/web/libs/crwebview/` | 删掉 2.0.0 的五个文件，只放 `crwebview-132.0.6834.165.aar` 和 `crwebview-res-132.0.6834.165.aar`。`app/crwebview.gradle` 按 `*.aar` 收，改名不用动脚本。`common/web` 继续 `compileOnly`，`app/crwebview.gradle` 继续 `implementation` |
-| `app/crwebview.gradle` | **必须** `noCompress 'bin', 'pak', 'dat'`。`icudtl.dat` 在 APK 里须为 STORED；内核用文件描述符映射，DEFLATE 会 `icu_util` Invalid file descriptor → `CrWebViewPrewarmer` SIGTRAP（见下表 12.18） |
+| `app/crwebview.gradle` | **必须** `noCompress 'bin', 'pak', 'dat'`。`icudtl.dat` 在 APK 里须为 STORED；内核用 fd 映射，DEFLATE → `cr_ApkAssets … probably compressed` → `icu_util` Invalid file descriptor → 进程崩溃（预热存在时表现为 `CrWebViewPrewarmer` SIGTRAP；见 §12.18） |
+| 预热（可选） | 曾加登录后 `about:blank`（`CrWebViewPrewarmer`）缩短首进课；现已从本地 tip 去掉做 A/B。需要时再接，**不是**接入必选项 |
+| GLES / DrawFunctor | 默认 GLES（`QueryRenderMode`↔`g_use_vulkan`）；Draw 路径保留 `ScopedAllowBaseSyncPrimitives`；资源 AAR 含 content∪ui `R$array` 合并 |
 | `CrWebViewImpl` | 类里加静态块，在碰任何 crwebview 静态方法之前设后缀。`setWebContentsDebuggingEnabled` 也会初始化内核，所以不能放在 `createWebView` 里 |
 | `CrWebViewImpl.createWebView` | 不加前景遮罩。`onPageStarted` 里设透明背景保持不变 |
 | `buildSrc` | R8 `8.6.17` 放在 AGP 7.4.2 之前，不变 |
@@ -567,6 +569,19 @@ static {
 这里的 `WebView` 是 `org.chromium.android_crwebview.webkit.WebView`。内核初始化之后再调会抛 `IllegalStateException`。`CrWebViewImpl` 是应用里唯一引用 crwebview 类的地方，放在它的静态块里就够早。
 
 切到新目录后，两个内核的 Cookie 和 LocalStorage 不再共用，网页里的登录状态要靠应用重新注入。装过 2.0.0 的测试机换包前清一次应用数据，2.0.0 的数据混在 `app_webview` 里。
+
+### 9.1 APK 体积（相对商业 crwebview ~318MB 时代 → 现约 ~344MB，约 +25MB）
+
+缺口**主要不是** `libwebviewchromium.so` 未压缩体积（自编 so 未压缩可小于商业包）。粗分：
+
+| 因素 | 约增量 | 说明 |
+|------|--------|------|
+| `icudtl.dat` STORED | ~+5.5MB | 两边都必须 STORED；商业包同样不能压 icudtl |
+| 其它 `.so` zip | ~+8–9MB | CRC 相同的 AGP/zip 水平约 5.5 + CRC 不同二进制约 3.9；ThinLTO 更难压 |
+| dex zip | ~+6.5MB | crwebview Java 绑定、更多 dex 分片；两侧 minify 均关 |
+
+在保留 `dat`→STORED 的前提下，不大改代码的压缩空间已基本用尽。再砍体积需 R8/绑定裁剪或重编 AAR——记为可选后续，**不是**当前接入步骤。
+
 
 ## 10. 真机验证
 
@@ -620,4 +635,5 @@ Chrome 58、Chrome 74 那几台工单机，用这包在原设备上再打开一�
 | 12.15 | §7.2 | official 需 host checkout_linux：wayland / libdrm / fontconfig 按 DEPS pin 手工 clone | 2026-10-30 |
 | 12.16 | §7.2 | bluez 缺 `cros_system_api` 头：clone DEPS pin `554629b9…` 后续编 | 2026-10-31 |
 | 12.17 | §7.2 | official+ThinLTO+`symbol_level=0`：`enable_resource_allowlist_generation=false`，避免 pak allowlist 0 资源失败 | 2026-11-01 |
-| 12.18 | §9 | `noCompress` 不可去掉 `dat`：`icudtl.dat` DEFLATE → fd 映射失败 → Prewarmer SIGTRAP；yxt tip `6b321628` FAIL / `852bcddc` 恢复后 PASS | 2026-11-02 |
+| 12.18 | §9 | `noCompress` 不可去掉 `dat`：DEFLATE → `cr_ApkAssets`/`icu_util` Invalid FD → 崩（预热时 Prewarmer SIGTRAP）；tip `6b321628` FAIL / `852bcddc` 恢复 PASS（冷 mark→frame ~738 / 热 ~718；对照 ThinLTO `290c8219` 730/675） | 2026-11-02 |
+| 12.19 | §9 | 登录 `about:blank` 预热为可选实验；本地 `630cd0965` 已删便于 A/B；`origin/crwebview` 仍为 `c8f90eac` | 2026-11-02 |

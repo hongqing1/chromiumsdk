@@ -16,4 +16,9 @@
 | 12.11 | §7.4 | values 按名合并 | `packaging/merge_res_from_sources.py` |
 | 12.12 | §7.4 | content∪ui R shim | `gen_r_shims.py` / `package_res_aar_finish.sh` |
 | 12.13 | §4.2 | `QueryRenderMode`↔`g_use_vulkan` | `0026-allocator-query-render-mode-gles` |
+| 12.14 | §7.2 | official+ThinLTO：去掉 `concurrent_links`；`chrome_pgo_phase=0` | `gn/args.gn` |
+| 12.15 | §7.2 | official host checkout_linux deps | wayland / libdrm / fontconfig |
+| 12.16 | §7.2 | bluez `cros_system_api` 头 | DEPS pin clone |
+| 12.17 | §7.2 | `enable_resource_allowlist_generation=false`（symbol_level=0+ThinLTO） | `gn/args.gn` |
 | 12.18 | §9 | `noCompress` 保留 `dat`（icudtl STORED） | yxt `app/crwebview.gradle` |
+| 12.19 | §9 | 登录预热可选；本地已删做 A/B | yxt `CrWebViewPrewarmer` |
