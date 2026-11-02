@@ -2,7 +2,7 @@
 
 **State:** OFFICIAL_THINLTO_PUBLISHED（主 AAR：official+ThinLTO；资源 AAR：values 按名合并 + content∪ui R shim）
 **Pin:** 132.0.6834.165 / crwebview 88f8fc85
-**Updated:** 2026-11-01 Asia/Shanghai（GitHub Release 主 AAR 已换成 official+ThinLTO；§12.17 allowlist 已写入方案文档）
+**Updated:** 2026-11-02 Asia/Shanghai（§12.18：`noCompress` 必须保留 `dat`；Release AAR 仍为 official+ThinLTO 82943728）
 
 ## Artifacts (GitHub Release v132.0.6834.165-arm64)
 
@@ -14,3 +14,5 @@
 ## Latest fix
 
 official+ThinLTO rebuild published 2026-11-01 Asia/Shanghai. Near-end failure on `system_webview_pak_allowlist` (0 `AllowlistedResource` with ThinLTO + `symbol_level=0`) fixed by `enable_resource_allowlist_generation=false` (§12.17 / §7.2). Prior DCHECK-off ~85.3M asset replaced on the same tag.
+
+App-side 2026-11-02: dropping `dat` from `noCompress` made `assets/icudtl.dat` DEFLATE on MI PAD 4 → `icu_util` Invalid file descriptor → `CrWebViewPrewarmer` SIGTRAP (§12.18). Restored; shrink abandoned.

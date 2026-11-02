@@ -550,7 +550,7 @@ python3 gen_r_shims.py crwebview-res/src/main/java \
 | 位置 | 改法 |
 |------|------|
 | `common/web/libs/crwebview/` | 删掉 2.0.0 的五个文件，只放 `crwebview-132.0.6834.165.aar` 和 `crwebview-res-132.0.6834.165.aar`。`app/crwebview.gradle` 按 `*.aar` 收，改名不用动脚本。`common/web` 继续 `compileOnly`，`app/crwebview.gradle` 继续 `implementation` |
-| `app/crwebview.gradle` | `noCompress 'bin', 'pak', 'dat'`。本地 2.0.0 的 APK 里 `icudtl.dat` 是压缩的，内核按文件描述符映射它 |
+| `app/crwebview.gradle` | **必须** `noCompress 'bin', 'pak', 'dat'`。`icudtl.dat` 在 APK 里须为 STORED；内核用文件描述符映射，DEFLATE 会 `icu_util` Invalid file descriptor → `CrWebViewPrewarmer` SIGTRAP（见下表 12.18） |
 | `CrWebViewImpl` | 类里加静态块，在碰任何 crwebview 静态方法之前设后缀。`setWebContentsDebuggingEnabled` 也会初始化内核，所以不能放在 `createWebView` 里 |
 | `CrWebViewImpl.createWebView` | 不加前景遮罩。`onPageStarted` 里设透明背景保持不变 |
 | `buildSrc` | R8 `8.6.17` 放在 AGP 7.4.2 之前，不变 |
@@ -620,3 +620,4 @@ Chrome 58、Chrome 74 那几台工单机，用这包在原设备上再打开一�
 | 12.15 | §7.2 | official 需 host checkout_linux：wayland / libdrm / fontconfig 按 DEPS pin 手工 clone | 2026-10-30 |
 | 12.16 | §7.2 | bluez 缺 `cros_system_api` 头：clone DEPS pin `554629b9…` 后续编 | 2026-10-31 |
 | 12.17 | §7.2 | official+ThinLTO+`symbol_level=0`：`enable_resource_allowlist_generation=false`，避免 pak allowlist 0 资源失败 | 2026-11-01 |
+| 12.18 | §9 | `noCompress` 不可去掉 `dat`：`icudtl.dat` DEFLATE → fd 映射失败 → Prewarmer SIGTRAP；yxt tip `6b321628` FAIL / `852bcddc` 恢复后 PASS | 2026-11-02 |

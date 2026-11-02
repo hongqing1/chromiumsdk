@@ -16,3 +16,4 @@
 | 12.11 | §7.4 | values 按名合并 | `packaging/merge_res_from_sources.py` |
 | 12.12 | §7.4 | content∪ui R shim | `gen_r_shims.py` / `package_res_aar_finish.sh` |
 | 12.13 | §4.2 | `QueryRenderMode`↔`g_use_vulkan` | `0026-allocator-query-render-mode-gles` |
+| 12.18 | §9 | `noCompress` 保留 `dat`（icudtl STORED） | yxt `app/crwebview.gradle` |
